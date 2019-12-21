@@ -1,0 +1,26 @@
+[package]
+name = "fastforward"
+version = "0.0.0-beta.1"
+authors = ["Brian Mason <bpmason1@hotmail.com>"]
+exclude = [
+	"*.md",
+	"tests/*"
+]
+include = [
+	"src/**/*",
+	"Cargo.toml",
+	"README.md"
+]
+repository = "https://github.com/bpmason1/fastforward"
+readme = "README.md"
+keywords = [
+	"proxy",
+]
+description = """
+A library for implementing custom reverse proxies.
+"""
+edition = "2018"
+
+[badges]
+
+[dependencies]
