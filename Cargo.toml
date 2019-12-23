@@ -27,8 +27,8 @@ A library for implementing custom reverse proxies.
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-futures = "0.1.29"
+#futures = "0.1.29"
 http = "0.2.0"
 hyper = "0.12.35"
-net2 = "0.2.33"
-tokio-core = "0.1.17"
+#net2 = "0.2.33"
+#tokio-core = "0.1.17"
