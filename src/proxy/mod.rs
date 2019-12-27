@@ -32,11 +32,6 @@ pub fn generic_proxy(listen_addr: SocketAddr, director: Director) {
 
         service_fn(move |mut req| {
             (director)(&mut req);
-            let uri_string = format!("http://{}/{}",
-                "127.0.0.1:4000",
-                req.uri().path_and_query().map(|x| x.as_str()).unwrap_or(""));
-            let uri = uri_string.parse().unwrap();
-            *req.uri_mut() = uri;
             client.request(req)
         })
         
@@ -46,7 +41,8 @@ pub fn generic_proxy(listen_addr: SocketAddr, director: Director) {
         .serve(new_service)
         .map_err(|e| eprintln!("server error: {}", e));
 
-    println!("Listening on http://{}", listen_addr);
+    // println!("Listening on http://{}", listen_addr);
 
     rt::run(server);
 }
+
