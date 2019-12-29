@@ -4,7 +4,7 @@ mod filters;
 // use http::{Request, Response};
 // use hyper::Body;
 use hyper::{Client, Server};
-// use hyper::client::HttpConnector;
+use hyper::client::ResponseFuture;
 // use hyper::server::conn::Http;
 use hyper::service::service_fn;
 // use hyper::service::Service;
@@ -16,7 +16,7 @@ use filters::filter_request_headers;
 
 // use listeners::setup_listener;
 
-type Director = fn(&mut hyper::Request<hyper::Body>);
+type Director = fn(&mut hyper::Request<hyper::Body>) -> Option<ResponseFuture>;
 
 // struct Proxy {
 //     pub client: Client<HttpConnector, Body>,
@@ -35,8 +35,11 @@ pub fn generic_proxy(listen_addr: SocketAddr, director: Director) {
 
         service_fn(move |mut req| {
             filter_request_headers(req.headers_mut());
-            (director)(&mut req);
-            client.request(req)
+            let resp = (director)(&mut req);
+            match resp {
+                Some(r) => { r }
+                None => { client.request(req) }
+            }
         })
         
     };
