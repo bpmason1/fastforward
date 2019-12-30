@@ -2,13 +2,13 @@ mod filters;
 
 use filters::remove_hop_by_hop_headers;
 use hyper::{Client, Server};
-use hyper::client::ResponseFuture;
+//use hyper::client::ResponseFuture;
 use hyper::service::service_fn;
 use hyper::rt::{self, Future};
 use std::net::SocketAddr;
 
 
-type Director = fn(&mut hyper::Request<hyper::Body>) -> Option<ResponseFuture>;
+type Director = fn(&mut hyper::Request<hyper::Body>); // -> Option<ResponseFuture>;
 
 pub fn generic_proxy(listen_addr: SocketAddr, director: Director) {
     let client_main = Client::new();
@@ -18,11 +18,13 @@ pub fn generic_proxy(listen_addr: SocketAddr, director: Director) {
 
         service_fn(move |mut req| {
             remove_hop_by_hop_headers(req.headers_mut());
-            let resp = (director)(&mut req);
-            match resp {
-                Some(r) => { r }
-                None => { client.request(req) }
-            }
+            (director)(&mut req);
+            // let resp = (director)(&mut req);
+            // match resp {
+            //     Some(r) => { r }
+            //     None => { client.request(req) }
+            // }
+            client.request(req)
         })
         
     };
