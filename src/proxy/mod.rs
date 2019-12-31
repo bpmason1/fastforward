@@ -17,7 +17,7 @@ pub fn generic_proxy(listen_addr: SocketAddr, director: Director) {
         let client = client_main.clone();
 
         service_fn(move |mut req| {
-            remove_hop_by_hop_headers(req.headers_mut());
+            *req.headers_mut() = remove_hop_by_hop_headers(req.headers());
             (director)(&mut req);
             // let resp = (director)(&mut req);
             // match resp {
@@ -44,7 +44,7 @@ pub fn simple_proxy(listen_addr: SocketAddr, proxy_addr: SocketAddr) {
         let client = client_main.clone();
 
         service_fn(move |mut req| {
-            remove_hop_by_hop_headers(req.headers_mut());
+            *req.headers_mut() = remove_hop_by_hop_headers(req.headers());
             let scheme = req.uri().scheme_str().unwrap();
             let uri_string = format!(
                 "{}://{}/{}",
