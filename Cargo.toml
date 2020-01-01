@@ -27,5 +27,10 @@ A library for implementing custom reverse proxies.
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+http = "0.2.0"
+http_handler = { git  = "https://github.com/danielbodart/http-handler.rust" }
 hyper = "0.12.35"
-
+# lazy_static = "1.4.0"
+nom = "5.0.1"
+rayon = "1.3.0"
+# tokio = { version = "0.2.6", features = ["full"] }
