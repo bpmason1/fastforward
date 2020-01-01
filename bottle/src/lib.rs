@@ -133,22 +133,16 @@ named!( read_first_line <RequestLine>,
 );
 
 
-pub fn read_http_request(mut stream: TcpStream) -> Request<()> {
+pub fn read_http_request(mut stream: TcpStream) -> Request<Vec<u8>> {
     let mut buf = [0; 512];
     stream.read(&mut buf).unwrap();
 
     let msg = str::from_utf8(&buf).unwrap();
     let (rest1, req_line) = read_first_line(msg.as_bytes()).unwrap();
     let (rest2, headers) = all_headers(rest1).unwrap();
-    let (rest3, body) = read_body(rest2).unwrap();
-    println!("{:?}", from_utf8(rest3));
-    println!("{:?}", from_utf8(body));
-    println!("{:?}", headers);
-
-    // let ( rest1, method) = read_method(msg.as_bytes()).unwrap();
-    // println!("{:?}", from_utf8(method));
-
-    
+    // println!("{:?}", from_utf8(rest3));
+    // println!("{:?}", from_utf8(body));
+    // println!("{:?}", headers);
 
     let mut request = Request::builder()
                     .method(req_line.method)
@@ -156,10 +150,22 @@ pub fn read_http_request(mut stream: TcpStream) -> Request<()> {
     let mut content_length = 0;
     for elem in headers.iter() {
         if elem.key == "content_length" {
-            content_length = elem.key.parse::<i32>().unwrap();
+            content_length = elem.key.parse::<usize>().unwrap();
         }
         request = request.header(elem.key, elem.value);
     }
 
-    request.body(()).unwrap()
+    println!("{}", rest2.len());
+    let (rest3, body) = read_body(rest2).unwrap();
+    let mut body_vec: Vec<u8> = array_to_vec(body);
+
+    request.body(body_vec).unwrap()
+}
+
+fn array_to_vec(arr: &[u8]) -> Vec<u8> {
+    let mut vector = Vec::new();
+    for i in arr.iter() {
+        vector.push(*i);
+    }
+    vector
 }
