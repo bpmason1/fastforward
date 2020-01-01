@@ -1,29 +1,25 @@
+extern crate http;
 #[macro_use] extern crate nom;
 
-// use nom::{
-//     IResult,
-//     branch::alt,
-//     // see the "streaming/complete" paragraph lower for an explanation of these submodules
-//     character::complete::char,
-//     bytes::complete::{is_not, tag}
-// };
+use http::Request;
 use std::io::Read;
 use std::net::TcpStream;
 use std::str::{self, from_utf8};
 use nom::character::is_alphanumeric;
+use std::vec::Vec;
 
 #[derive(PartialEq, Debug)]
-pub struct Header<'b> {
-    pub key: &'b str,
-    pub value: &'b str,
+struct Header<'b> {
+    key: &'b str,
+    value: &'b str,
 }
 
 #[derive(PartialEq, Debug)]
-pub struct RequestLine<'a> {
-    pub method: &'a str,
-    pub target: &'a str, // [u8],
-    pub version: &'a str,
-    // pub version: HttpVersion,
+struct RequestLine<'a> {
+    method: &'a str,
+    target: &'a str, // [u8],
+    version: &'a str,
+    // version: HttpVersion,
 }
 
 fn is_token_char(i: u8) -> bool {
@@ -137,7 +133,7 @@ named!( read_first_line <RequestLine>,
 );
 
 
-pub fn read_http_request(mut stream: TcpStream)  {
+pub fn read_http_request(mut stream: TcpStream) -> Request<()> {
     let mut buf = [0; 512];
     stream.read(&mut buf).unwrap();
 
@@ -147,7 +143,23 @@ pub fn read_http_request(mut stream: TcpStream)  {
     let (rest3, body) = read_body(rest2).unwrap();
     println!("{:?}", from_utf8(rest3));
     println!("{:?}", from_utf8(body));
+    println!("{:?}", headers);
 
     // let ( rest1, method) = read_method(msg.as_bytes()).unwrap();
     // println!("{:?}", from_utf8(method));
+
+    
+
+    let mut request = Request::builder()
+                    .method(req_line.method)
+                    .uri(req_line.target);
+    let mut content_length = 0;
+    for elem in headers.iter() {
+        if elem.key == "content_length" {
+            content_length = elem.key.parse::<i32>().unwrap();
+        }
+        request = request.header(elem.key, elem.value);
+    }
+
+    request.body(()).unwrap()
 }
