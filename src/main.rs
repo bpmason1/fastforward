@@ -2,12 +2,15 @@ extern crate bottle;
 extern crate http;
 extern crate rayon;
 
+mod proxy;
+
 use bottle::read_http_request;
 // use http::Request;
 use std::io;
 use std::net::{TcpListener, TcpStream};
 // use std::{thread, time};
 use std::str;
+use proxy::generic_proxy;
 
 
 fn handle_client(mut stream: TcpStream) {
@@ -23,21 +26,24 @@ fn handle_client(mut stream: TcpStream) {
         println!("{:?}", str::from_utf8(request.body()));
 }
 
+fn my_director(req: &mut http::Request<Vec<u8>>) { /* pass through */ }
+
 fn main() -> io::Result<()> {
 
-    let pool = rayon::ThreadPoolBuilder::new().num_threads(8).build().unwrap();
+    generic_proxy(my_director);
+    // let pool = rayon::ThreadPoolBuilder::new().num_threads(8).build().unwrap();
 
-    let listener = TcpListener::bind("127.0.0.1:8080")?;
+    // let listener = TcpListener::bind("127.0.0.1:8080")?;
 
-    // accept connections and process them serially
-    pool.install( || {
+    // // accept connections and process them serially
+    // pool.install( || {
 
-        for stream in listener.incoming() {
-            pool.spawn( || 
-                handle_client(stream.unwrap())
-            )
-        }
-    });
+    //     for stream in listener.incoming() {
+    //         pool.spawn( || 
+    //             handle_client(stream.unwrap())
+    //         )
+    //     }
+    // });
 
     Ok(())
 }

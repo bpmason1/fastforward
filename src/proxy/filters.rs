@@ -1,5 +1,4 @@
-use hyper::HeaderMap;
-use hyper::header::{self, HeaderName};
+use http::header::{self, HeaderMap, HeaderName};
 
 
 pub fn remove_hop_by_hop_headers(headers: &HeaderMap) -> HeaderMap {
