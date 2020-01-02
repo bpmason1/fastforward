@@ -20,14 +20,17 @@ fn serialize_request(req: Request<Vec<u8>>) -> Vec<String> {
     vector.push(req_line);
 
     for (key, value) in req.headers().iter() {
-        if key.as_str().to_lowercase() != "content-length" {
-            let h: String = format!("{}: {}\r\n", key, value.to_str().unwrap());
-            vector.push(h);
-        } else {
-            let body_size = req.body().len();
-            let h: String = format!("{}: {}\r\n", key, body_size);
-            vector.push(h);
-        }
+        match key.as_str() {
+            "content-length" => {
+                let body_size = req.body().len();
+                let h: String = format!("{}: {}\r\n", key, body_size);
+                vector.push(h);    
+            },
+            _ => {
+                let h: String = format!("{}: {}\r\n", key, value.to_str().unwrap());
+                vector.push(h);
+            }
+        };
     }
 
     vector.push(format!("\r\n"));
