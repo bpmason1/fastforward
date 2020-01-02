@@ -1,7 +1,7 @@
 extern crate http;
 #[macro_use] extern crate nom;
 
-use http::Request;
+use http::{Request, Version};
 use std::io::Read;
 use std::net::TcpStream;
 use std::str::{self, from_utf8};
@@ -134,7 +134,7 @@ named!( read_first_line <RequestLine>,
 
 
 pub fn read_http_request(mut stream: TcpStream) -> Request<Vec<u8>> {
-    let mut buf = [0; 512];
+    let mut buf = [0; 1024];
     stream.read(&mut buf).unwrap();
 
     let msg = str::from_utf8(&buf).unwrap();
@@ -147,19 +147,34 @@ pub fn read_http_request(mut stream: TcpStream) -> Request<Vec<u8>> {
     let mut request = Request::builder()
                     .method(req_line.method)
                     .uri(req_line.target);
+    match req_line.version {
+        "1.1" => {request = request.version( Version::HTTP_11 )}
+        "2.0" => {request = request.version( Version::HTTP_2 )}
+        _ => {}
+    };
+
     let mut content_length = 0;
     for elem in headers.iter() {
-        if elem.key == "content_length" {
-            content_length = elem.key.parse::<usize>().unwrap();
+        if elem.key.to_lowercase() == "content-length" {
+            content_length = elem.value.parse::<usize>().unwrap();
         }
         request = request.header(elem.key, elem.value);
     }
 
-    println!("{}", rest2.len());
-    let (rest3, body) = read_body(rest2).unwrap();
-    let mut body_vec: Vec<u8> = array_to_vec(body);
+    if rest2.len() < content_length {
+        let mut buf2 = vec![0; content_length - rest2.len()];
+        stream.read(&mut buf2).unwrap();
+        let mut body_vec: Vec<u8> = array_to_vec(rest2);
+        for i in buf2.iter() {
+            body_vec.push(*i);
+        }
+        return request.body(body_vec).unwrap();
+    } else {
+        let (_, body) = read_body(rest2).unwrap();
+        let body_vec: Vec<u8> = array_to_vec(body);
+        return request.body(body_vec).unwrap();
+    }
 
-    request.body(body_vec).unwrap()
 }
 
 fn array_to_vec(arr: &[u8]) -> Vec<u8> {
