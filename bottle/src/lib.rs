@@ -1,7 +1,7 @@
 extern crate http;
 #[macro_use] extern crate nom;
 
-use http::{Request, Version};
+use http::{Request, Response, Version};
 use std::io::Read;
 use std::net::TcpStream;
 use std::str::{self, from_utf8};
@@ -132,6 +132,12 @@ named!( read_first_line <RequestLine>,
     )
 );
 
+
+pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
+    // TODO - implement me!!!
+    let mut vector = Vec::new();
+    Response::builder().body(vector).unwrap()
+}
 
 pub fn read_http_request(mut stream: TcpStream) -> Request<Vec<u8>> {
     let mut buf = [0; 1024];

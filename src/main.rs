@@ -1,49 +1,37 @@
+#[macro_use]
+extern crate lazy_static;
+
 extern crate bottle;
 extern crate http;
 extern crate rayon;
 
 mod proxy;
 
-use bottle::read_http_request;
-// use http::Request;
+use http::{
+    header::{HeaderName, HeaderValue},
+    Response
+};
 use std::io;
-use std::net::{TcpListener, TcpStream};
-// use std::{thread, time};
-use std::str;
-use proxy::generic_proxy;
+use std::net::SocketAddr;
+use proxy::{generic_proxy, FF_PROXT_HOST};
 
+// const FF_PROXY_HOST: &'static [u8] = b"ff-proxy-host";
 
-fn handle_client(mut stream: TcpStream) {
-        // println!("Enter handle_client");
+fn my_director(req: &mut http::Request<Vec<u8>>) -> Option<Response<Vec<u8>>> { 
+   // set the variables
+   let proxy_addr = HeaderValue::from_str("127.0.0.1:4000").unwrap();
 
-        let request = read_http_request(stream);
+   let req_headers = req.headers_mut();
+   req_headers.remove(http::header::HOST);
+   req_headers.insert(FF_PROXT_HOST.clone(), proxy_addr);
 
-        // let ten_secs = time::Duration::from_millis(7000);
-        // let now = time::Instant::now();
-        // thread::sleep(ten_secs);
-
-        println!("{:?}", request);
-        println!("{:?}", str::from_utf8(request.body()));
+   *req.uri_mut() = "/health".parse().unwrap();
+   None
 }
 
-fn my_director(req: &mut http::Request<Vec<u8>>) { /* pass through */ }
-
 fn main() -> io::Result<()> {
-
-    generic_proxy(my_director);
-    // let pool = rayon::ThreadPoolBuilder::new().num_threads(8).build().unwrap();
-
-    // let listener = TcpListener::bind("127.0.0.1:8080")?;
-
-    // // accept connections and process them serially
-    // pool.install( || {
-
-    //     for stream in listener.incoming() {
-    //         pool.spawn( || 
-    //             handle_client(stream.unwrap())
-    //         )
-    //     }
-    // });
+    let listen_addr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
+    generic_proxy(listen_addr, my_director);
 
     Ok(())
 }
