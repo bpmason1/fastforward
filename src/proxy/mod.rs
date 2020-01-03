@@ -20,32 +20,29 @@ use std::string::String;
 
 type Director = fn(&mut Request<Vec<u8>>) -> Option<Response<Vec<u8>>>;
 
-fn serialize_request(req: Request<Vec<u8>>) -> Vec<String> {
-    // serializes everything but the request body (for performance reasons)
-    let mut vector = Vec::new();
+fn write_request(req: Request<Vec<u8>>, mut client: TcpStream ) {
     let req_line = format!("{} {} {:?}\r\n", req.method(), req.uri(), req.version());
-    vector.push(req_line);
+    client.write(req_line.as_bytes());
 
     for (key, value) in req.headers().iter() {
         match key.as_str() {
             "content-length" => {
                 let body_size = req.body().len();
                 let h: String = format!("{}: {}\r\n", key, body_size);
-                vector.push(h);    
+                client.write(h.as_bytes());    
             },
             "user-agent" => {
                 // ignore this header
             }
             _ => {
                 let h: String = format!("{}: {}\r\n", key, value.to_str().unwrap());
-                vector.push(h);
+                client.write(h.as_bytes());
             }
         };
     }
 
-    vector.push(format!("\r\n"));
-    vector.push(format!("{:?}", req.body()));  // TODO - don't send debug representation of byte array (this is wrong!!)
-    vector
+    client.write(b"\r\n");
+    client.write(req.body());
 }
 
 fn handle_client(mut stream: TcpStream , director: Director ) {
@@ -59,13 +56,11 @@ fn handle_client(mut stream: TcpStream , director: Director ) {
             let proxy_addr = req.headers().get(http::header::HOST).unwrap();
             let mut client = TcpStream::connect(from_utf8(proxy_addr.as_bytes()).unwrap()).unwrap();
 
-            for s in serialize_request(req) {
-                client.write(s.as_bytes()).unwrap();
-            }
-
+            write_request(req, client.try_clone().unwrap());
+            
             // TODO - reconstruct the HTTP response to ensure the entire message is returned
             const BUF_SIZE: usize = 1024;
-            loop {
+            // loop {
                 let mut buf = [0; BUF_SIZE];
                 let len = client.read(&mut buf).expect("read failed");
     
@@ -73,10 +68,10 @@ fn handle_client(mut stream: TcpStream , director: Director ) {
                     stream.write(&buf).unwrap();
                 }
 
-                if len < BUF_SIZE {
-                    break;
-                }
-            }
+                // if len < BUF_SIZE {
+                //     break;
+                // }
+            // }
         }
     };
 }
