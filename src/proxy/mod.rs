@@ -17,11 +17,6 @@ use std::string::String;
 // use serde::{Serialize, Deserialize};
 // use serde::ser::{Serialize, Serializer};
 
-lazy_static! {
-    pub static ref FF_PROXT_HOST: HeaderName = {
-        HeaderName::from_lowercase(b"ff-proxy-host").unwrap()
-    };
-}
 
 type Director = fn(&mut Request<Vec<u8>>) -> Option<Response<Vec<u8>>>;
 
@@ -38,10 +33,6 @@ fn serialize_request(req: Request<Vec<u8>>) -> Vec<String> {
                 let h: String = format!("{}: {}\r\n", key, body_size);
                 vector.push(h);    
             },
-            "host" => {
-                let h: String = format!("{}: {}\r\n", key, "127.0.0.1:4000");
-                vector.push(h);
-            },
             "user-agent" => {
                 // ignore this header
             }
@@ -57,15 +48,6 @@ fn serialize_request(req: Request<Vec<u8>>) -> Vec<String> {
     vector
 }
 
-// impl Serialize for Request<Vec<u8>> {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//     }
-// }
-
-
 fn handle_client(mut stream: TcpStream , director: Director ) {
     let mut req = read_http_request(stream.try_clone().unwrap());
     *req.headers_mut() = remove_hop_by_hop_headers(req.headers());
@@ -74,11 +56,10 @@ fn handle_client(mut stream: TcpStream , director: Director ) {
             // TODO - serialize the response and write it to the open TcpStream
         },
         None => {
-            let proxy_addr = req.headers().get(FF_PROXT_HOST.clone()).unwrap();
+            let proxy_addr = req.headers().get(http::header::HOST).unwrap();
             let mut client = TcpStream::connect(from_utf8(proxy_addr.as_bytes()).unwrap()).unwrap();
 
             for s in serialize_request(req) {
-                println!("{}", s);
                 client.write(s.as_bytes()).unwrap();
             }
 
