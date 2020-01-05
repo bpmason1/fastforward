@@ -22,14 +22,34 @@ struct RequestLine<'a> {
     // version: HttpVersion,
 }
 
+#[derive(PartialEq, Debug)]
+struct ResponseLine<'a> {
+    status_code: &'a str,
+    status_message: &'a str, // [u8],
+    version: &'a str,
+    // version: HttpVersion,
+}
+
 fn is_token_char(i: u8) -> bool {
     is_alphanumeric(i) ||
     b"!#$%&'*+-.^_`|~".contains(&i)
   }
 
+
+fn is_digit_char(i: u8) -> bool {
+    b"0123456789".contains(&i)
+  }
+
 named!(token <&str>,
     map_res!(
         take_while!(is_token_char),
+        from_utf8
+    )
+);
+
+named!(number <&str>,
+    map_res!(
+        take_while!(is_digit_char),
         from_utf8
     )
 );
@@ -124,7 +144,15 @@ named!(all_headers< Vec<Header> >,
     )
 );
 
-named!( read_first_line <RequestLine>,
+named!( read_response_line <ResponseLine>,
+    do_parse!(
+        http >> slash >> version: http_version >> space >>
+        status_code: number >> space >> status_message: token >> crlf >>
+        (ResponseLine {status_code: status_code, status_message: status_message, version: version})
+    )
+);
+
+named!( read_request_line <RequestLine>,
     do_parse!(
         method: read_method >> space >> target: to_space >> space >>
         http >> slash >> version: http_version >> crlf >>
@@ -135,8 +163,22 @@ named!( read_first_line <RequestLine>,
 
 pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
     // TODO - implement me!!!
+    let mut buf = [0; 1024];
+    stream.read(&mut buf).unwrap();
+
+    let msg = str::from_utf8(&buf).unwrap();
+    let (rest1, resp_line) = read_response_line(msg.as_bytes()).unwrap();
+    let (rest2, headers) = all_headers(rest1).unwrap();
+
+    let mut response = Response::builder();
+    match resp_line.version {
+        "1.1" => {response = response.version( Version::HTTP_11 )}
+        "2.0" => {response = response.version( Version::HTTP_2 )}
+        _ => {}
+    };
+
     let mut vector = Vec::new();
-    Response::builder().body(vector).unwrap()
+    response.body(vector).unwrap()
 }
 
 pub fn read_http_request(mut stream: TcpStream) -> Request<Vec<u8>> {
@@ -144,7 +186,7 @@ pub fn read_http_request(mut stream: TcpStream) -> Request<Vec<u8>> {
     stream.read(&mut buf).unwrap();
 
     let msg = str::from_utf8(&buf).unwrap();
-    let (rest1, req_line) = read_first_line(msg.as_bytes()).unwrap();
+    let (rest1, req_line) = read_request_line(msg.as_bytes()).unwrap();
     let (rest2, headers) = all_headers(rest1).unwrap();
     // println!("{:?}", from_utf8(rest3));
     // println!("{:?}", from_utf8(body));
