@@ -20,7 +20,34 @@ use std::string::String;
 
 type Director = fn(&mut Request<Vec<u8>>) -> Option<Response<Vec<u8>>>;
 
-fn write_request(req: Request<Vec<u8>>, mut client: TcpStream ) {
+fn write_response(resp: Response<Vec<u8>>, mut client: TcpStream) {
+    let reason = match resp.status().canonical_reason() {
+        Some(r) => r,
+        None => ""
+    };
+    let resp_line = format!("{:?} {} {}\r\n", resp.version(), resp.status().as_str(), reason);
+    client.write(resp_line.as_bytes());
+
+    for (key, value) in resp.headers().iter() {
+        match key.as_str() {
+            "content-length" => {
+                let body_size = resp.body().len();
+                let h: String = format!("{}: {}\r\n", key, body_size);
+                client.write(h.as_bytes());    
+            },
+            _ => {
+                let h: String = format!("{}: {}\r\n", key, value.to_str().unwrap());
+                client.write(h.as_bytes());
+            }
+        };
+    }
+
+
+    client.write(b"\r\n");
+    client.write(resp.body());
+} 
+
+fn write_request(req: Request<Vec<u8>>, mut client: TcpStream) {
     let req_line = format!("{} {} {:?}\r\n", req.method(), req.uri(), req.version());
     client.write(req_line.as_bytes());
 
@@ -57,21 +84,23 @@ fn handle_client(mut stream: TcpStream , director: Director ) {
             let mut proxy_stream = TcpStream::connect(from_utf8(proxy_addr.as_bytes()).unwrap()).unwrap();
 
             write_request(req, proxy_stream.try_clone().unwrap());
-            
-            // TODO - reconstruct the HTTP response to ensure the entire message is returned
-            const BUF_SIZE: usize = 1024;
-            // loop {
-                let mut buf = [0; BUF_SIZE];
-                let len = proxy_stream.read(&mut buf).expect("read failed");
-    
-                if len > 0 {
-                    stream.write(&buf).unwrap();
-                }
 
-                // if len < BUF_SIZE {
-                //     break;
-                // }
-            // }
+            let resp = read_http_response(proxy_stream.try_clone().unwrap());
+            // TODO - reconstruct the HTTP response to ensure the entire message is returned
+            // const BUF_SIZE: usize = 1024;
+            // // loop {
+            //     let mut buf = [0; BUF_SIZE];
+            //     let len = proxy_stream.read(&mut buf).expect("read failed");
+    
+            //     if len > 0 {
+            //         stream.write(&buf).unwrap();
+            //     }
+
+            //     // if len < BUF_SIZE {
+            //     //     break;
+            //     // }
+            // // }
+            write_response(resp, stream);
         }
     };
 }

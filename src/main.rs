@@ -21,7 +21,7 @@ fn my_director(req: &mut http::Request<Vec<u8>>) -> Option<Response<Vec<u8>>> {
    req_headers.remove(http::header::HOST);
    req_headers.insert(http::header::HOST, proxy_addr);
 
-   *req.uri_mut() = "/health".parse().unwrap();
+//    *req.uri_mut() = "/health".parse().unwrap();
    None
 }
 
