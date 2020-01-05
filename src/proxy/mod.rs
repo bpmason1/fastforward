@@ -1,7 +1,7 @@
 mod filters;
 
 use filters::remove_hop_by_hop_headers;
-use bottle::read_http_request;
+use bottle::{read_http_request, read_http_response};
 use http::{
     header::HeaderName,
     Request,
@@ -50,19 +50,19 @@ fn handle_client(mut stream: TcpStream , director: Director ) {
     *req.headers_mut() = remove_hop_by_hop_headers(req.headers());
     match (director)(&mut req) {
         Some(resp) => {
-            // TODO - serialize the response and write it to the open TcpStream
+            // TODO - serialize the response from the Director and write it to the open TcpStream
         },
         None => {
             let proxy_addr = req.headers().get(http::header::HOST).unwrap();
-            let mut client = TcpStream::connect(from_utf8(proxy_addr.as_bytes()).unwrap()).unwrap();
+            let mut proxy_stream = TcpStream::connect(from_utf8(proxy_addr.as_bytes()).unwrap()).unwrap();
 
-            write_request(req, client.try_clone().unwrap());
+            write_request(req, proxy_stream.try_clone().unwrap());
             
             // TODO - reconstruct the HTTP response to ensure the entire message is returned
             const BUF_SIZE: usize = 1024;
             // loop {
                 let mut buf = [0; BUF_SIZE];
-                let len = client.read(&mut buf).expect("read failed");
+                let len = proxy_stream.read(&mut buf).expect("read failed");
     
                 if len > 0 {
                     stream.write(&buf).unwrap();
