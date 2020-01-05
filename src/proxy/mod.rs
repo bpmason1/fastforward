@@ -3,11 +3,9 @@ mod filters;
 use filters::remove_hop_by_hop_headers;
 use bottle::{read_http_request, read_http_response};
 use http::{
-    header::HeaderName,
     Request,
     Response
 };
-use std::fmt;
 use std::io::{Read, Write};
 use std::net::SocketAddr;
 use std::net::{TcpListener, TcpStream};
