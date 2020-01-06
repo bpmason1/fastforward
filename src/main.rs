@@ -1,6 +1,5 @@
-extern crate bottle;
 extern crate http;
-extern crate rayon;
+// extern crate rayon;
 
 mod proxy;
 
