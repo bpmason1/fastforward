@@ -7,8 +7,8 @@ use super::{
     number,
     read_body,
     slash,
-    token,
-    space
+    spaces,
+    token
 };
 
 use http::{Response, StatusCode, Version};
@@ -26,8 +26,8 @@ struct ResponseLine<'a> {
 
 named!( read_response_line <ResponseLine>,
     do_parse!(
-        http >> slash >> version: http_version >> space >>
-        status_code: number >> space >> token >> crlf >>
+        http >> slash >> version: http_version >> opt!(spaces) >>
+        status_code: number >> opt!(spaces) >> token >> crlf >>
         (ResponseLine {status_code: status_code, version: version})
     )
 );

@@ -8,9 +8,10 @@ use super::{
     read_body,
     read_method,
     slash,
+    space,
+    spaces,
     to_space,
-    token,
-    space
+    token
 };
 
 use http::{Request, StatusCode, Version};
@@ -28,7 +29,7 @@ struct RequestLine<'a> {
 
 named!( read_request_line <RequestLine>,
     do_parse!(
-        method: read_method >> space >> target: to_space >> space >>
+        method: read_method >> opt!(spaces) >> target: to_space >> opt!(spaces) >>
         http >> slash >> version: http_version >> crlf >>
         (RequestLine {method: method, target: target , version: version})
     )

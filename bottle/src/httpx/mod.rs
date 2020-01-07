@@ -5,7 +5,7 @@ pub use request::read_http_request;
 pub use response::read_http_response;
 
 use std::str::{self, from_utf8};
-use nom::character::is_alphanumeric;
+use nom::character::{is_alphanumeric, is_space};
 use std::vec::Vec;
 
 #[derive(PartialEq, Debug)]
@@ -64,6 +64,7 @@ named!( http, tag!("HTTP"));
 named!( slash, tag!("/"));
 
 named!( space, tag!(" "));
+named!( spaces, take_while!(is_space));
 
 named!( http_version <&str>,
     map_res!(
