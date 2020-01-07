@@ -1,17 +1,19 @@
 use super::{
     all_headers,
     array_to_vec,
-    crlf,
     http,
     http_version,
-    number,
     read_body,
-    read_method,
-    slash,
-    space,
-    spaces,
+    http_method,
     to_space,
     token
+};
+
+use crate::combinators::{
+    crlf,
+    number,
+    slash,
+    spaces
 };
 
 use http::{Request, StatusCode, Version};
@@ -29,7 +31,7 @@ struct RequestLine<'a> {
 
 named!( read_request_line <RequestLine>,
     do_parse!(
-        method: read_method >> opt!(spaces) >> target: to_space >> opt!(spaces) >>
+        method: http_method >> opt!(spaces) >> target: to_space >> opt!(spaces) >>
         http >> slash >> version: http_version >> crlf >>
         (RequestLine {method: method, target: target , version: version})
     )
@@ -42,9 +44,6 @@ pub fn read_http_request(mut stream: TcpStream) -> Request<Vec<u8>> {
     let msg = str::from_utf8(&buf).unwrap();
     let (rest1, req_line) = read_request_line(msg.as_bytes()).unwrap();
     let (rest2, headers) = all_headers(rest1).unwrap();
-    // println!("{:?}", from_utf8(rest3));
-    // println!("{:?}", from_utf8(body));
-    // println!("{:?}", headers);
 
     let mut request = Request::builder()
                         .method(req_line.method)

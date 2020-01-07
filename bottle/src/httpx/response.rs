@@ -1,14 +1,17 @@
 use super::{
     all_headers,
     array_to_vec,
-    crlf,
     http,
     http_version,
-    number,
     read_body,
-    slash,
-    spaces,
     token
+};
+
+use crate::combinators::{
+    crlf,
+    number,
+    slash,
+    spaces
 };
 
 use http::{Response, StatusCode, Version};
