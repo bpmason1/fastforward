@@ -75,7 +75,7 @@ fn handle_client(mut stream: TcpStream , director: Director ) {
     *req.headers_mut() = remove_hop_by_hop_headers(req.headers());
     match (director)(&mut req) {
         Some(resp) => {
-            // TODO - serialize the response from the Director and write it to the open TcpStream
+            write_response(resp, stream);
         },
         None => {
             let proxy_addr = req.headers().get(http::header::HOST).unwrap();
@@ -84,20 +84,6 @@ fn handle_client(mut stream: TcpStream , director: Director ) {
             write_request(req, proxy_stream.try_clone().unwrap());
 
             let resp = read_http_response(proxy_stream.try_clone().unwrap());
-            // TODO - reconstruct the HTTP response to ensure the entire message is returned
-            // const BUF_SIZE: usize = 1024;
-            // // loop {
-            //     let mut buf = [0; BUF_SIZE];
-            //     let len = proxy_stream.read(&mut buf).expect("read failed");
-    
-            //     if len > 0 {
-            //         stream.write(&buf).unwrap();
-            //     }
-
-            //     // if len < BUF_SIZE {
-            //     //     break;
-            //     // }
-            // // }
             write_response(resp, stream);
         }
     };
