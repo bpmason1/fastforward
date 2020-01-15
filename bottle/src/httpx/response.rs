@@ -15,9 +15,11 @@ use crate::combinators::{
 };
 
 use http::{Response, StatusCode, Version};
-use std::io::Read;
+use std::io::BufReader;
+use std::io::prelude::*;
 use std::net::TcpStream;
 use std::str::{self, from_utf8};
+// use std::{thread, time};
 
 
 #[derive(PartialEq, Debug)]
@@ -35,13 +37,25 @@ named!( read_response_line <ResponseLine>,
     )
 );
 
-pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
-    let mut buf = [0; 1024];
-    stream.read(&mut buf).unwrap();
+pub fn read_http_response2(reader: &mut BufReader<TcpStream>) -> String {
+    let mut line = String::new();
+    let len = reader.read_line(&mut line).unwrap();
+    println!("{}", line);
+    line
+}
 
-    let msg = str::from_utf8(&buf).unwrap();
-    let (rest1, resp_line) = read_response_line(msg.as_bytes()).unwrap();
-    let (rest2, headers) = all_headers(rest1).unwrap();
+pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
+    // let one_sec = time::Duration::from_millis(1000);
+    // thread::sleep(one_sec);
+
+    let mut reader = BufReader::new(stream);
+
+    let mut line = read_http_response2(&mut reader);
+    let (_, resp_line) = read_response_line(line.as_bytes()).unwrap();
+
+    let mut rest1 = [0; 1024];
+    reader.read(&mut rest1).unwrap();
+    let (rest2, headers) = all_headers(&rest1).unwrap();
 
     let status_code = StatusCode::from_bytes(resp_line.status_code.as_bytes()).unwrap();
 
@@ -64,7 +78,7 @@ pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
 
     if rest2.len() < content_length {
         let mut buf2 = vec![0; content_length - rest2.len()];
-        stream.read(&mut buf2).unwrap();
+        reader.read(&mut buf2).unwrap();
         let mut body_vec: Vec<u8> = array_to_vec(rest2);
         for i in buf2.iter() {
             body_vec.push(*i);
