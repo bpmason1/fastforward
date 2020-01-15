@@ -5,7 +5,8 @@ use super::{
     http_version,
     read_body,
     read_header,
-    token
+    token,
+    Header
 };
 
 use crate::combinators::{
@@ -68,16 +69,22 @@ pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
     };
 
     let mut rest1 = [0; 1024];
-    reader.read(&mut rest1).unwrap();
-    let (rest2, headers) = all_headers(&rest1).unwrap();
-
     let mut content_length = 0;
-    for elem in headers.iter() {
-        if elem.key.to_lowercase() == "content-length" {
-            content_length = elem.value.parse::<usize>().unwrap();
+    let headers_ex = Vec::<Header>::new();
+    let rest2 = loop {
+        // let h_line = read_line_from_stream(&mut reader);
+        reader.read(&mut rest1).unwrap();
+        let (foo, headers) = all_headers(&rest1).unwrap();
+
+        for elem in headers.iter() {
+            if elem.key.to_lowercase() == "content-length" {
+                content_length = elem.value.parse::<usize>().unwrap();
+            }
+            response = response.header(elem.key, elem.value);
         }
-        response = response.header(elem.key, elem.value);
-    }
+        // rest2 = foo;
+        break foo;
+    };
 
     if rest2.len() < content_length {
         let mut buf2 = vec![0; content_length - rest2.len()];
