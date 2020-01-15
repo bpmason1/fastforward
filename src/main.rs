@@ -26,6 +26,7 @@ fn my_director(req: &mut http::Request<Vec<u8>>) -> Option<Response<Vec<u8>>> {
 
 fn main() -> io::Result<()> {
     let listen_addr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
+    println!("running on port :8080");
     generic_proxy(listen_addr, my_director);
 
     Ok(())

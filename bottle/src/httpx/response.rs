@@ -4,6 +4,7 @@ use super::{
     http,
     http_version,
     read_body,
+    read_header,
     token
 };
 
@@ -19,7 +20,7 @@ use std::io::BufReader;
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::str::{self, from_utf8};
-// use std::{thread, time};
+use std::{thread, time};
 
 
 #[derive(PartialEq, Debug)]
@@ -37,7 +38,8 @@ named!( read_response_line <ResponseLine>,
     )
 );
 
-pub fn read_http_response2(reader: &mut BufReader<TcpStream>) -> String {
+pub fn read_line_from_stream(reader: &mut BufReader<TcpStream>) -> String {
+    // This only works because the last character on an HTTP request line is '\n'
     let mut line = String::new();
     let len = reader.read_line(&mut line).unwrap();
     println!("{}", line);
@@ -45,17 +47,14 @@ pub fn read_http_response2(reader: &mut BufReader<TcpStream>) -> String {
 }
 
 pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
-    // let one_sec = time::Duration::from_millis(1000);
-    // thread::sleep(one_sec);
+    // hack because I'm not properly handling slow streams
+    let half_sec = time::Duration::from_millis(500);
+    thread::sleep(half_sec);
 
     let mut reader = BufReader::new(stream);
 
-    let mut line = read_http_response2(&mut reader);
+    let mut line = read_line_from_stream(&mut reader);
     let (_, resp_line) = read_response_line(line.as_bytes()).unwrap();
-
-    let mut rest1 = [0; 1024];
-    reader.read(&mut rest1).unwrap();
-    let (rest2, headers) = all_headers(&rest1).unwrap();
 
     let status_code = StatusCode::from_bytes(resp_line.status_code.as_bytes()).unwrap();
 
@@ -67,6 +66,10 @@ pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
         "2.0" => {response = response.version( Version::HTTP_2 )}
         _ => {}
     };
+
+    let mut rest1 = [0; 1024];
+    reader.read(&mut rest1).unwrap();
+    let (rest2, headers) = all_headers(&rest1).unwrap();
 
     let mut content_length = 0;
     for elem in headers.iter() {
