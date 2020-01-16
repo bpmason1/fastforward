@@ -31,7 +31,7 @@ struct ResponseLine<'a> {
     // version: HttpVersion,
 }
 
-named!( read_response_line <ResponseLine>,
+named!( parse_response_line <ResponseLine>,
     do_parse!(
         http >> slash >> version: http_version >> opt!(spaces) >>
         status_code: number >> opt!(spaces) >> token >> crlf >>
@@ -43,7 +43,6 @@ pub fn read_line_from_stream(reader: &mut BufReader<TcpStream>) -> String {
     // This only works because the last character on an HTTP request line is '\n'
     let mut line = String::new();
     let len = reader.read_line(&mut line).unwrap();
-    println!("{}", line);
     line
 }
 
@@ -54,8 +53,15 @@ pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
 
     let mut reader = BufReader::new(stream);
 
-    let mut line = read_line_from_stream(&mut reader);
-    let (_, resp_line) = read_response_line(line.as_bytes()).unwrap();
+    let mut line: String = String::from("");
+    let resp_line = loop {
+        line.push_str(read_line_from_stream(&mut reader).as_str());
+        println!("{}", line);
+        match parse_response_line(line.as_bytes()) {
+            Ok((_, resp_line)) => break resp_line,
+            Err(_) => {}
+        }
+    };
 
     let status_code = StatusCode::from_bytes(resp_line.status_code.as_bytes()).unwrap();
 
