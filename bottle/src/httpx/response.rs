@@ -17,11 +17,12 @@ use crate::combinators::{
 };
 
 use http::{Response, StatusCode, Version};
+use http::response::Builder;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::str::{self, from_utf8};
-use std::{thread, time};
+// use std::{thread, time};
 
 
 #[derive(PartialEq, Debug)]
@@ -46,13 +47,7 @@ pub fn read_line_from_stream(reader: &mut BufReader<TcpStream>) -> String {
     line
 }
 
-pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
-    // hack because I'm not properly handling slow streams
-    let half_sec = time::Duration::from_millis(500);
-    thread::sleep(half_sec);
-
-    let mut reader = BufReader::new(stream);
-
+fn read_initial_request_line(mut reader: &mut BufReader<TcpStream>) -> Builder {
     let mut line: String = String::from("");
     let resp_line = loop {
         line.push_str(read_line_from_stream(&mut reader).as_str());
@@ -63,35 +58,73 @@ pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
         }
     };
 
+    let header_line = String::from("");
     let status_code = StatusCode::from_bytes(resp_line.status_code.as_bytes()).unwrap();
 
     let mut response = Response::builder()
                         .status(status_code);
 
-    match resp_line.version {
-        "1.1" => {response = response.version( Version::HTTP_11 )}
-        "2.0" => {response = response.version( Version::HTTP_2 )}
-        _ => {}
+    response = match resp_line.version {
+        "1.1" => response.version( Version::HTTP_11 ),
+        "2.0" => response.version( Version::HTTP_2 ),
+        _ => response
     };
 
-    let mut rest1 = [0; 1024];
+    response
+}
+
+pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
+    // hack because I'm not properly handling slow streams
+    // let half_sec = time::Duration::from_millis(500);
+    // thread::sleep(half_sec);
+
+    let mut reader = BufReader::new(stream);
+    let mut response = read_initial_request_line(&mut reader);
+
+
     let mut content_length = 0;
-    let headers_ex = Vec::<Header>::new();
-    let rest2 = loop {
-        // let h_line = read_line_from_stream(&mut reader);
-        reader.read(&mut rest1).unwrap();
-        let (foo, headers) = all_headers(&rest1).unwrap();
 
-        for elem in headers.iter() {
-            if elem.key.to_lowercase() == "content-length" {
-                content_length = elem.value.parse::<usize>().unwrap();
+    let mut line: String = String::from("");
+    loop {
+        let header_line = loop {
+            // thread::sleep(half_sec);
+            line.push_str(read_line_from_stream(&mut reader).as_str());
+            if line.as_str() == "\r\n" {
+                break None;
             }
-            response = response.header(elem.key, elem.value);
-        }
-        // rest2 = foo;
-        break foo;
-    };
+            
+            // println!("{:?}", line.as_bytes());
 
+            if !line.ends_with("\r\n") {
+                continue
+            }
+            
+            match read_header(line.as_bytes()) {
+                Ok((_, resp_line)) => break Some(resp_line),
+                Err(_) => {}
+            }
+        };
+
+        let done = match header_line {
+            Some(elem) => {
+                if elem.key.to_lowercase() == "content-length" {
+                    content_length = elem.value.parse::<usize>().unwrap();
+                }
+                // println!("Key => {}", elem.key);
+                response = response.header(elem.key, elem.value);
+                line = String::from("");
+                false
+            },
+            None => true
+        };
+
+        if done {
+            break
+        }
+    }
+
+    // TODO - clean this up
+    let rest2 = b"";
     if rest2.len() < content_length {
         let mut buf2 = vec![0; content_length - rest2.len()];
         reader.read(&mut buf2).unwrap();
