@@ -22,14 +22,13 @@ use std::io::BufReader;
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::str::{self, from_utf8};
-// use std::{thread, time};
+use std::{thread, time};
 
 
 #[derive(PartialEq, Debug)]
 struct ResponseLine<'a> {
     status_code: &'a str,
     version: &'a str,
-    // version: HttpVersion,
 }
 
 named!( parse_response_line <ResponseLine>,
@@ -51,7 +50,6 @@ fn read_initial_request_line(mut reader: &mut BufReader<TcpStream>) -> Builder {
     let mut line: String = String::from("");
     let resp_line = loop {
         line.push_str(read_line_from_stream(&mut reader).as_str());
-        println!("{}", line);
         match parse_response_line(line.as_bytes()) {
             Ok((_, resp_line)) => break resp_line,
             Err(_) => {}
@@ -61,8 +59,7 @@ fn read_initial_request_line(mut reader: &mut BufReader<TcpStream>) -> Builder {
     let header_line = String::from("");
     let status_code = StatusCode::from_bytes(resp_line.status_code.as_bytes()).unwrap();
 
-    let mut response = Response::builder()
-                        .status(status_code);
+    let mut response = Response::builder().status(status_code);
 
     response = match resp_line.version {
         "1.1" => response.version( Version::HTTP_11 ),
@@ -74,20 +71,14 @@ fn read_initial_request_line(mut reader: &mut BufReader<TcpStream>) -> Builder {
 }
 
 pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
-    // hack because I'm not properly handling slow streams
-    // let half_sec = time::Duration::from_millis(500);
-    // thread::sleep(half_sec);
-
     let mut reader = BufReader::new(stream);
     let mut response = read_initial_request_line(&mut reader);
-
 
     let mut content_length = 0;
 
     let mut line: String = String::from("");
     loop {
         let header_line = loop {
-            // thread::sleep(half_sec);
             line.push_str(read_line_from_stream(&mut reader).as_str());
             if line.as_str() == "\r\n" {
                 break None;
@@ -96,6 +87,8 @@ pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
             // println!("{:?}", line.as_bytes());
 
             if !line.ends_with("\r\n") {
+                // part of the message is missing ... throttle and retry
+                thread::sleep(time::Duration::from_millis(5));
                 continue
             }
             
@@ -130,8 +123,12 @@ pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
         for i in 0..body_size {
             body.push(buf2[i]);
         }
+
         if body.len() >= content_length {
             break;
+        } else {
+            // part of the message is missing ... throttle and retry
+            thread::sleep(time::Duration::from_millis(5));
         }
     }
     response.body(body).unwrap()
