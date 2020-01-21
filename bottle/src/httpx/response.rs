@@ -70,7 +70,7 @@ fn read_initial_request_line(mut reader: &mut BufReader<TcpStream>) -> Builder {
     response
 }
 
-pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
+pub fn read_http_response(mut stream: TcpStream) -> Result<Response<Vec<u8>>, http::Error> {
     let mut reader = BufReader::new(stream);
     let mut response = read_initial_request_line(&mut reader);
 
@@ -131,5 +131,5 @@ pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
             thread::sleep(time::Duration::from_millis(5));
         }
     }
-    response.body(body).unwrap()
+    response.body(body)
 }

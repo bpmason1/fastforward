@@ -37,7 +37,7 @@ named!( read_request_line <RequestLine>,
     )
 );
 
-pub fn read_http_request(mut stream: TcpStream) -> Request<Vec<u8>> {
+pub fn read_http_request(mut stream: TcpStream) -> Result<Request<Vec<u8>>, http::Error> {
     let mut buf = [0; 1024];
     stream.read(&mut buf).unwrap();
 
@@ -69,11 +69,11 @@ pub fn read_http_request(mut stream: TcpStream) -> Request<Vec<u8>> {
         for i in buf2.iter() {
             body_vec.push(*i);
         }
-        return request.body(body_vec).unwrap();
+        return request.body(body_vec);
     } else {
         let (_, body) = read_body(rest2).unwrap();
         let body_vec: Vec<u8> = array_to_vec(body);
-        return request.body(body_vec).unwrap();
+        return request.body(body_vec);
     }
 
 }

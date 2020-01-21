@@ -69,7 +69,7 @@ fn write_request(req: Request<Vec<u8>>, mut client: TcpStream) {
 }
 
 fn handle_client(mut stream: TcpStream , director: Director ) {
-    let mut req = read_http_request(stream.try_clone().unwrap());
+    let mut req = read_http_request(stream.try_clone().unwrap()).unwrap();
     *req.headers_mut() = remove_hop_by_hop_headers(req.headers());
     match (director)(&mut req) {
         Some(resp) => {
@@ -82,7 +82,7 @@ fn handle_client(mut stream: TcpStream , director: Director ) {
             write_request(req, proxy_stream.try_clone().unwrap());
 
             let resp = read_http_response(proxy_stream.try_clone().unwrap());
-            write_response(resp, stream);
+            write_response(resp.unwrap(), stream);
         }
     };
 }
