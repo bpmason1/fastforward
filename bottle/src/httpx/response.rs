@@ -123,19 +123,16 @@ pub fn read_http_response(mut stream: TcpStream) -> Response<Vec<u8>> {
         }
     }
 
-    // TODO - clean this up
-    let rest2 = b"";
-    if rest2.len() < content_length {
-        let mut buf2 = vec![0; content_length - rest2.len()];
-        reader.read(&mut buf2).unwrap();
-        let mut body_vec: Vec<u8> = array_to_vec(rest2);
-        for i in buf2.iter() {
-            body_vec.push(*i);
+    let mut body = Vec::new();
+    loop {
+        let mut buf2 = vec![0; content_length];
+        let body_size = reader.read(&mut buf2).unwrap();
+        for i in 0..body_size {
+            body.push(buf2[i]);
         }
-        return response.body(body_vec).unwrap();
-    } else {
-        let (_, body) = read_body(rest2).unwrap();
-        let body_vec: Vec<u8> = array_to_vec(body);
-        return response.body(body_vec).unwrap();
+        if body.len() >= content_length {
+            break;
+        }
     }
+    response.body(body).unwrap()
 }
