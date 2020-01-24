@@ -37,7 +37,7 @@ named!( parse_response_line <ResponseLine>,
 pub fn read_line_from_stream(reader: &mut BufReader<TcpStream>) -> String {
     // This only works because the last character on an HTTP request line is '\n'
     let mut line = String::new();
-    let len = reader.read_line(&mut line).unwrap();
+    /*let len =*/ reader.read_line(&mut line).unwrap();
     line
 }
 
@@ -51,7 +51,6 @@ fn read_initial_request_line(mut reader: &mut BufReader<TcpStream>) -> Builder {
         }
     };
 
-    let header_line = String::from("");
     let status_code = StatusCode::from_bytes(resp_line.status_code.as_bytes()).unwrap();
 
     let mut response = Response::builder().status(status_code);
