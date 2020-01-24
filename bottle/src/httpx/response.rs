@@ -1,12 +1,8 @@
 use super::{
-    all_headers,
-    array_to_vec,
     http,
     http_version,
-    read_body,
     read_header,
-    token,
-    Header
+    token
 };
 
 use crate::combinators::{
@@ -21,7 +17,6 @@ use http::response::Builder;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::net::TcpStream;
-use std::str::{self, from_utf8};
 use std::{thread, time};
 
 

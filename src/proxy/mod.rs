@@ -7,7 +7,7 @@ use http::{
     Response
 };
 use num_cpus;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::net::SocketAddr;
 use std::net::{TcpListener, TcpStream};
 use std::str::from_utf8;

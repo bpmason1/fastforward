@@ -5,21 +5,19 @@ use super::{
     http_version,
     read_body,
     http_method,
-    to_space,
-    token
+    to_space
 };
 
 use crate::combinators::{
     crlf,
-    number,
     slash,
     spaces
 };
 
-use http::{Request, StatusCode, Version};
+use http::{Request, Version};
 use std::io::Read;
 use std::net::TcpStream;
-use std::str::{self, from_utf8};
+use std::str;
 
 #[derive(PartialEq, Debug)]
 struct RequestLine<'a> {
