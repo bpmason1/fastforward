@@ -58,6 +58,7 @@ fn test_filter_frontend_request_headers() {
     let mut headers = HeaderMap::new();
     headers.insert(header::TRANSFER_ENCODING, HeaderValue::from_static("chunked"));
     headers.insert(header::UPGRADE, HeaderValue::from_static("HTTP/2.0, IRC/6.9, RTA/x11, SHTTP/1.3"));
+    headers.insert(header::PROXY_AUTHENTICATE, HeaderValue::from_static("Basic"));
     headers.insert(header::CONNECTION, HeaderValue::from_static("Foo, Bar"));
     headers.insert(keep_alive.clone(), HeaderValue::from_static("timeout=60"));
     headers.insert(foo.clone(), HeaderValue::from_static("Foo Value"));
