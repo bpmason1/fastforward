@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/bpmason1/fastforward.svg?branch=master)](https://travis-ci.org/bpmason1/fastforward)
+
 # fastforward
 
 Fastforward is library for writing reverse proxies in rust.
