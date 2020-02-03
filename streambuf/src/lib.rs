@@ -38,7 +38,7 @@ impl StreamBuf {
             return None;
         }
 
-        let start_idx_opt = find_subsequence(self.buffer.as_slice(), terminator);
+        let start_idx_opt = twoway::find_bytes(self.buffer.as_slice(), terminator);
         let result: Option<Vec<u8>> = match start_idx_opt {
             Some(start_idx) => {
                 let end_idx = start_idx + terminator.len();
@@ -52,9 +52,62 @@ impl StreamBuf {
 
 }
 
+fn read_once_until(haystack: &mut Vec<u8>, needle: &[u8]) -> Option<Vec<u8>> {
+    if haystack.len() < needle.len() {
+        return None;
+    }
 
-fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    twoway::find_bytes(haystack, needle)
+    let start_idx_opt = twoway::find_bytes(haystack.as_slice(), needle);
+    let result: Option<Vec<u8>> = match start_idx_opt {
+        Some(start_idx) => {
+            let end_idx = start_idx + needle.len();
+            let data: Vec<u8> = haystack.drain(..end_idx).collect();
+            Some(data)
+        },
+        None => None
+    };
+    result
+}
+
+#[test]
+fn test_read_once_until() {
+    unsafe {
+        let mut text = String::from("Hello World");
+        let mut haystack: Vec<u8> = text.as_mut_vec().to_vec();
+        assert_eq!(read_once_until(&mut haystack.to_vec(), b"not there"), None);
+    }
+
+    unsafe {
+        let mut text = String::from("Hello World");
+        let mut haystack: Vec<u8> = text.as_mut_vec().to_vec();
+        let resp = read_once_until(&mut haystack, b"Wo");
+        assert_eq!(resp.unwrap().as_slice(), b"Hello Wo");
+        assert_eq!(haystack.as_slice(), b"rld");
+    }
+
+    unsafe {
+        let mut text = String::from("Hello World");
+        let mut haystack: Vec<u8> = text.as_mut_vec().to_vec();
+        let resp = read_once_until(&mut haystack, b"Hello");
+        assert_eq!(resp.unwrap().as_slice(), b"Hello");
+        assert_eq!(haystack.as_slice(), b" World");
+    }
+
+    unsafe {
+        let mut text = String::from("Foo Bar Bar Foo");
+        let mut haystack: Vec<u8> = text.as_mut_vec().to_vec();
+        let resp = read_once_until(&mut haystack, b"Bar");
+        assert_eq!(resp.unwrap().as_slice(), b"Foo Bar");
+        assert_eq!(haystack.as_slice(), b" Bar Foo");
+    }
+
+    unsafe {
+        let mut text = String::from("XYYZ");
+        let mut haystack: Vec<u8> = text.as_mut_vec().to_vec();
+        let resp = read_once_until(&mut haystack, b"Y");
+        assert_eq!(resp.unwrap().as_slice(), b"XY");
+        assert_eq!(haystack.as_slice(), b"YZ");
+    }
 }
 
 pub fn read_line(buf: &mut BufReader<TcpStream>) -> Result<String, Error> {
