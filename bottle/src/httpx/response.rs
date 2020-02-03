@@ -35,6 +35,11 @@ named!( parse_response_line <ResponseLine>,
 );
 
 pub fn read_line_from_stream(reader: &mut BufReader<TcpStream>) -> String {
+    read_line_until(reader, "\r\n")
+}
+
+
+pub fn read_line_until(reader: &mut BufReader<TcpStream>, terminator: &str) -> String {
     // This only works because the last character on an HTTP request line is '\n'
     let mut line = String::new();
     // /*let len =*/ reader.read_line(&mut line).unwrap();
@@ -43,8 +48,12 @@ pub fn read_line_from_stream(reader: &mut BufReader<TcpStream>) -> String {
         let mut next_str = String::new();
         reader.read_line(&mut next_str).unwrap();
         line.push_str(next_str.as_str());
-        if line.ends_with(CRLF) {
+        if line.ends_with(terminator) {
             break;
+        } else {
+            // not all data is available in the input stream.
+            // sleep 5 milliseconds before trying again
+            thread::sleep(time::Duration::from_millis(5));
         }
     }
 
