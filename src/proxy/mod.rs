@@ -4,7 +4,8 @@ use filters::remove_hop_by_hop_headers;
 use bottle::httpx::{read_http_request, read_http_response};
 use http::{
     Request,
-    Response
+    Response,
+    StatusCode
 };
 use num_cpus;
 use std::io::Write;
@@ -81,8 +82,13 @@ fn handle_client(mut stream: TcpStream , director: Director ) {
 
             write_request(req, proxy_stream.try_clone().unwrap());
 
-            let resp = read_http_response(proxy_stream.try_clone().unwrap());
-            write_response(resp.unwrap(), stream);
+            match read_http_response(proxy_stream.try_clone().unwrap()) {
+                Ok(resp) => write_response(resp, stream),
+                Err(err) => {
+                    let resp = Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(Vec::new()).unwrap();
+                    write_response(resp, stream)
+                }
+            }
         }
     };
 }
