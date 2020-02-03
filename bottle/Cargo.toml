@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 http = "0.2.0"
 nom = { version = "5.0.1", features = ["regexp"] }
+streambuf = { path = "../streambuf" }
