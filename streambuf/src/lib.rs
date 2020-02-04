@@ -31,23 +31,22 @@ impl StreamBuf {
         result
     }
 
-    pub fn read_once_until(&mut self, terminator: &[u8]) -> Option<Vec<u8>> {
-        self.read_inner_to_buffer();
-        
-        if self.buffer.len() < terminator.len() {
-            return None;
-        }
+    pub fn read_line(&mut self) -> Option<Vec<u8>> {
+        self.read_until(b"\r\n")
+    }
 
-        let start_idx_opt = twoway::find_bytes(self.buffer.as_slice(), terminator);
-        let result: Option<Vec<u8>> = match start_idx_opt {
-            Some(start_idx) => {
-                let end_idx = start_idx + terminator.len();
-                let data: Vec<u8> = self.buffer.drain(..end_idx).collect();
-                Some(data)
-            },
-            None => None
-        };
+    // TODO - add timeout
+    pub fn read_until(&mut self, terminator: &[u8]) -> Option<Vec<u8>> {
+        let mut result = None;
+        while result.is_none() {
+            result = self.read_once_until(terminator);
+        }
         result
+    }
+
+    fn read_once_until(&mut self, terminator: &[u8]) -> Option<Vec<u8>> {
+        self.read_inner_to_buffer();
+        read_once_until(&mut self.buffer, terminator)
     }
 
 }
