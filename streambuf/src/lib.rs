@@ -15,20 +15,51 @@ pub struct StreamBuf {
 }
 
 pub fn new(inner: TcpStream) -> StreamBuf {
-    StreamBuf{
+    
+    let stream = StreamBuf{
         inner: inner,
-        buffer: Vec::new(),
-    }
+        buffer: Vec::with_capacity(100),
+    };
+    let timeout  = Duration::from_millis(1);
+    stream.inner.set_read_timeout(Some(timeout));
+    stream
 }
 
 impl StreamBuf {
-    fn read_inner_to_buffer(&mut self) -> Result<usize, Error> {
-        let mut tmp_vec = Vec::new();
-        let result = self.inner.read( &mut tmp_vec );
+    fn read_inner_to_buffer(&mut self) { // -> Result<usize, Error> {
+        let mut buffer = [0; 100];
+        let result = self.inner.read(&mut buffer[..]);
+        // println!("{}", std::str::from_utf8(&buffer).unwrap());
+
         if result.is_ok() {
-            self.buffer.append(&mut tmp_vec);
+            let num_bytes = result.unwrap();
+            // self.buffer.append(&mut buffer);
+            for idx in 0..num_bytes {
+                self.buffer.push(buffer[idx]);
+            }
         }
-        result
+        
+        // let mut tmp_vec = Vec::with_capacity(100);
+        // let result = self.inner.read( &mut tmp_vec );
+        // println!("{:?}", tmp_vec);
+        // if result.is_ok() {
+        //     self.buffer.append(&mut tmp_vec);
+        // }
+        // result
+    }
+
+    pub fn read_num_bytes(&mut self, cnt: usize) -> Option<Vec<u8>> {
+        let delay = Duration::from_millis(5);
+
+        self.read_inner_to_buffer();
+
+        while self.buffer.len() < cnt {
+            // not all data is available in the input stream.
+            // sleep before trying again to avoid wasting CPU cycles
+            // thread::sleep(delay);
+        }
+        let data: Vec<u8> = self.buffer.drain(..cnt).collect();
+        Some(data)
     }
 
     pub fn read_line(&mut self) -> Option<Vec<u8>> {
@@ -37,16 +68,20 @@ impl StreamBuf {
 
     // TODO - add timeout
     pub fn read_until(&mut self, terminator: &[u8]) -> Option<Vec<u8>> {
+        let delay = Duration::from_millis(5);
+
         let mut result = None;
         while result.is_none() {
             result = self.read_once_until(terminator);
+            // thread::sleep(delay);
         }
         result
     }
 
     fn read_once_until(&mut self, terminator: &[u8]) -> Option<Vec<u8>> {
         self.read_inner_to_buffer();
-        read_once_until(&mut self.buffer, terminator)
+        let result = read_once_until(&mut self.buffer, terminator);
+        result
     }
 
 }
@@ -57,6 +92,7 @@ fn read_once_until(haystack: &mut Vec<u8>, needle: &[u8]) -> Option<Vec<u8>> {
     }
 
     let start_idx_opt = twoway::find_bytes(haystack.as_slice(), needle);
+    // println!("{:?}start_idx_opt", start_idx_opt);
     let result: Option<Vec<u8>> = match start_idx_opt {
         Some(start_idx) => {
             let end_idx = start_idx + needle.len();
@@ -107,34 +143,4 @@ fn test_read_once_until() {
         assert_eq!(resp.unwrap().as_slice(), b"XY");
         assert_eq!(haystack.as_slice(), b"YZ");
     }
-}
-
-pub fn read_line(buf: &mut BufReader<TcpStream>) -> Result<String, Error> {
-    read_until(buf, CRLF)
-}
-
-fn read_until(buf: &mut BufReader<TcpStream>, terminator: &str) -> Result<String, Error> {
-    let delay = time::Duration::from_millis(5);
-    read_until_with_delay(buf, terminator, delay)
-}
-
-// TODO - make this properly handle the terminator param
-fn read_until_with_delay(buf: &mut BufReader<TcpStream>, terminator: &str, delay: Duration) -> Result<String, Error> {
-    // this only works becaue buf.read_line stops on a "\n" character
-    let mut line = String::new();
-
-    loop {
-        let mut next_str = String::new();
-        buf.read_line(&mut next_str).expect("should be able to read from stream");
-        line.push_str(next_str.as_str());
-        if line.ends_with(terminator) {
-            break;
-        } else {
-            // not all data is available in the input stream.
-            // sleep before trying again to avoid wasting CPU cycles
-            thread::sleep(delay);
-        }
-    }
-
-    Ok(line)
 }

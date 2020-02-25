@@ -14,11 +14,14 @@ use crate::combinators::{
 
 use http::{Response, StatusCode, Version};
 use http::response::Builder;
-use std::io::BufReader;
+// use std::io::BufReader;
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::{thread, time};
-use streambuf::read_line;
+use streambuf::{
+    StreamBuf,
+    self,
+};
 
 
 #[derive(PartialEq, Debug)]
@@ -35,15 +38,18 @@ named!( parse_response_line <ResponseLine>,
     )
 );
 
-fn read_initial_request_line(mut reader: &mut BufReader<TcpStream>) -> Builder {
-    let mut line: String = String::from("");
-    let resp_line = loop {
-        line.push_str(read_line(&mut reader).unwrap().as_str());
-        match parse_response_line(line.as_bytes()) {
-            Ok((_, resp_line)) => break resp_line,
-            Err(_) => {}
-        }
-    };
+fn read_initial_request_line(mut reader: &mut StreamBuf) -> Builder {
+    let line: Vec<u8> = reader.read_line().unwrap();
+    let (_, resp_line) = parse_response_line(line.as_slice()).unwrap();
+  
+    // let mut line: String = String::from("");
+    // let resp_line = loop {
+    //     line.push_str(read_line(&mut reader).unwrap().as_str());
+    //     match parse_response_line(line.as_bytes()) {
+    //         Ok((_, resp_line)) => break resp_line,
+    //         Err(_) => {}
+    //     }
+    // };
 
     let status_code = StatusCode::from_bytes(resp_line.status_code.as_bytes()).unwrap();
 
@@ -58,66 +64,39 @@ fn read_initial_request_line(mut reader: &mut BufReader<TcpStream>) -> Builder {
     response
 }
 
-pub fn read_http_response(stream: TcpStream) -> Result<Response<Vec<u8>>, http::Error> {
-    let mut reader = BufReader::new(stream);
+pub fn read_http_response(mut stream: TcpStream) -> Result<Response<Vec<u8>>, http::Error> {
+    let mut reader = streambuf::new(stream.try_clone().unwrap());
+
+    // let mut buffer = [0; 50];
+    // stream.read(&mut buffer);
+    // println!("{}", std::str::from_utf8(&buffer).unwrap());
+
     let mut response = read_initial_request_line(&mut reader);
 
     let mut content_length = 0;
 
-    let mut line: String = String::from("");
     loop {
-        let header_line = loop {
-            line.push_str(read_line(&mut reader).unwrap().as_str());
-            if line.as_str() == "\r\n" {
-                break None;
-            }
-            
-            // println!("{:?}", line.as_bytes());
-
-            if !line.ends_with("\r\n") {
-                // part of the message is missing ... throttle and retry
-                thread::sleep(time::Duration::from_millis(5));
-                continue
-            }
-            
-            match read_header(line.as_bytes()) {
-                Ok((_, resp_line)) => break Some(resp_line),
-                Err(_) => {}
-            }
-        };
-
-        let done = match header_line {
-            Some(elem) => {
-                if elem.key.to_lowercase() == "content-length" {
-                    content_length = elem.value.parse::<usize>().unwrap();
-                }
-                // println!("Key => {}", elem.key);
-                response = response.header(elem.key, elem.value);
-                line = String::from("");
-                false
-            },
-            None => true
-        };
-
-        if done {
+        let resp_line = reader.read_until(b"\r\n").unwrap();
+        let resp_bytes = resp_line.as_slice();
+        if resp_bytes == b"\r\n" {
             break
         }
+
+        let (_, elem) = read_header(resp_bytes).unwrap();
+        if elem.key.to_lowercase() == "content-length" {
+            content_length = elem.value.parse::<usize>().unwrap();
+        }
+        // println!("Key => {}", elem.key);
+        response = response.header(elem.key, elem.value);
     }
 
     let mut body = Vec::new();
-    loop {
-        let mut buf2 = vec![0; content_length];
-        let body_size = reader.read(&mut buf2).unwrap();
-        for i in 0..body_size {
-            body.push(buf2[i]);
-        }
 
-        if body.len() >= content_length {
-            break;
-        } else {
-            // part of the message is missing ... throttle and retry
-            thread::sleep(time::Duration::from_millis(5));
-        }
+    let body_vec = reader.read_num_bytes(content_length).unwrap();
+
+    for i in 0..content_length {
+        body.push(body_vec[i]);
     }
+
     response.body(body)
 }
