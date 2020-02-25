@@ -18,8 +18,6 @@ use std::io::BufReader;
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::{thread, time};
-use streambuf::read_line;
-
 
 #[derive(PartialEq, Debug)]
 struct ResponseLine<'a> {
@@ -37,13 +35,9 @@ named!( parse_response_line <ResponseLine>,
 
 fn read_initial_request_line(mut reader: &mut BufReader<TcpStream>) -> Builder {
     let mut line: String = String::from("");
-    let resp_line = loop {
-        line.push_str(read_line(&mut reader).unwrap().as_str());
-        match parse_response_line(line.as_bytes()) {
-            Ok((_, resp_line)) => break resp_line,
-            Err(_) => {}
-        }
-    };
+    reader.read_line(&mut line).unwrap();
+
+    let (_, resp_line) = parse_response_line(line.as_bytes()).unwrap();
 
     let status_code = StatusCode::from_bytes(resp_line.status_code.as_bytes()).unwrap();
 
@@ -64,44 +58,22 @@ pub fn read_http_response(stream: TcpStream) -> Result<Response<Vec<u8>>, http::
 
     let mut content_length = 0;
 
-    let mut line: String = String::from("");
     loop {
-        let header_line = loop {
-            line.push_str(read_line(&mut reader).unwrap().as_str());
-            if line.as_str() == "\r\n" {
-                break None;
-            }
-            
-            // println!("{:?}", line.as_bytes());
-
-            if !line.ends_with("\r\n") {
-                // part of the message is missing ... throttle and retry
-                thread::sleep(time::Duration::from_millis(5));
-                continue
-            }
-            
-            match read_header(line.as_bytes()) {
-                Ok((_, resp_line)) => break Some(resp_line),
-                Err(_) => {}
-            }
-        };
-
-        let done = match header_line {
-            Some(elem) => {
-                if elem.key.to_lowercase() == "content-length" {
-                    content_length = elem.value.parse::<usize>().unwrap();
-                }
-                // println!("Key => {}", elem.key);
-                response = response.header(elem.key, elem.value);
-                line = String::from("");
-                false
-            },
-            None => true
-        };
-
-        if done {
-            break
+        let mut line: String = String::from("");
+        reader.read_line(&mut line).unwrap();
+        if line.as_str() == "\r\n" {
+            break;
         }
+
+        let (_, header_line) = read_header(line.as_bytes()).unwrap();
+        // println!("{:?}", line.as_bytes());
+
+
+        if header_line.key.to_lowercase() == "content-length" {
+            content_length = header_line.value.parse::<usize>().unwrap();
+        }
+        // println!("Key => {}", elem.key);
+        response = response.header(header_line.key, header_line.value);
     }
 
     let mut body = Vec::new();

@@ -1,5 +1,3 @@
-extern crate streambuf;
-
 mod request;
 mod response;
 
