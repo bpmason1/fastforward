@@ -17,7 +17,6 @@ use http::response::Builder;
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::net::TcpStream;
-use std::{thread, time};
 
 #[derive(PartialEq, Debug)]
 struct ResponseLine<'a> {
@@ -60,7 +59,7 @@ pub fn read_http_response(stream: TcpStream) -> Result<Response<Vec<u8>>, http::
 
     loop {
         let mut line: String = String::from("");
-        reader.read_line(&mut line).unwrap();
+        reader.read_line(&mut line);
         if line.as_str() == "\r\n" {
             break;
         }
@@ -77,19 +76,17 @@ pub fn read_http_response(stream: TcpStream) -> Result<Response<Vec<u8>>, http::
     }
 
     let mut body = Vec::new();
-    loop {
-        let mut buf2 = vec![0; content_length];
-        let body_size = reader.read(&mut buf2).unwrap();
-        for i in 0..body_size {
-            body.push(buf2[i]);
-        }
-
-        if body.len() >= content_length {
-            break;
-        } else {
-            // part of the message is missing ... throttle and retry
-            thread::sleep(time::Duration::from_millis(5));
-        }
+    let mut buf2 = vec![0; content_length];
+    let body_size = reader.read(&mut buf2).unwrap();
+    for i in 0..body_size {
+        body.push(buf2[i]);
     }
+
+    // if body.len() >= content_length {
+    //     break;
+    // } else {
+    //     // part of the message is missing ... throttle and retry
+    //     thread::sleep(time::Duration::from_millis(5));
+    // }
     response.body(body)
 }
