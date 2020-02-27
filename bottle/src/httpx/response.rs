@@ -48,9 +48,12 @@ fn read_initial_request_line(reader: &mut BufReader<TcpStream>) -> Result<Builde
     let mut response = Response::builder().status(status_code);
 
     response = match resp_line.version {
+        "0.9" => response.version( Version::HTTP_09 ),
+        "1.0" => response.version( Version::HTTP_10 ),
         "1.1" => response.version( Version::HTTP_11 ),
         "2.0" => response.version( Version::HTTP_2 ),
-        _ => response
+        "3.0" => response.version( Version::HTTP_3 ),
+        _ => { response }  // I don't know the http version so skip it
     };
 
     Ok(response)
