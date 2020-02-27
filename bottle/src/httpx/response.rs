@@ -14,6 +14,7 @@ use crate::combinators::{
 
 use http::{Response, StatusCode, Version};
 use http::response::Builder;
+use std::cmp::max;
 use std::io::{
     self,
     BufReader,
@@ -77,16 +78,31 @@ fn _read_http_response(reader: &mut BufReader<TcpStream>) -> Result<Response<Vec
             break;
         }
 
-        let (_, header_line) = read_header(line.as_bytes()).unwrap();
-        // println!("{:?}", line.as_bytes());
-
-
-        if header_line.key.to_lowercase() == "content-length" {
-            content_length = header_line.value.parse::<usize>().unwrap();
+        match read_header(line.as_bytes()) {
+            Ok((_, header_line)) => {
+                if header_line.key.to_lowercase() == "content-length" {
+                    match header_line.value.parse::<usize>() {
+                        Ok(value) => {
+                            content_length = max(content_length, value);
+                        },
+                        Err(_) => { /* do nothing */ }
+                    }
+                } else {
+                    response = response.header(header_line.key, header_line.value);
+                }
+                // println!("Key => {}", elem.key);
+            },
+            Err(_) => {
+                // TODO - don't ignore garbled/malformed response headers
+                content_length = 0;
+                response = response.status(StatusCode::INTERNAL_SERVER_ERROR);
+                break;
+            }
         }
-        // println!("Key => {}", elem.key);
-        response = response.header(header_line.key, header_line.value);
-    }
+    }  // end-loop
+
+    // this ensures that every non-error response has exactly 1 content-length header
+    response = response.header("content-length", content_length);
 
     let mut body = Vec::new();
     if content_length > 0 {
