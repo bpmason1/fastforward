@@ -21,7 +21,6 @@ use std::io::{
 };
 use std::net::TcpStream;
 
-
 #[derive(PartialEq, Debug)]
 struct ResponseLine<'a> {
     status_code: &'a str,
@@ -90,10 +89,14 @@ fn _read_http_response(reader: &mut BufReader<TcpStream>) -> Result<Response<Vec
     }
 
     let mut body = Vec::new();
-    let mut buf2 = vec![0; content_length];
-    let body_size = reader.read(&mut buf2).unwrap();
-    for i in 0..body_size {
-        body.push(buf2[i]);
+    if content_length > 0 {
+        let mut buf2 = vec![0; content_length];
+        let body_size = reader.read(&mut buf2).unwrap();
+
+        // TODO - find a more efficient way to do this
+        for i in 0..body_size {
+            body.push(buf2[i]);
+        }
     }
 
     // if body.len() >= content_length {
