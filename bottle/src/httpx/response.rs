@@ -101,26 +101,30 @@ fn _read_http_response(reader: &mut BufReader<TcpStream>) -> Result<Response<Vec
         }
     }  // end-loop
 
-    // this ensures that every non-error response has exactly 1 content-length header
-    response = response.header("content-length", content_length);
-
     let mut body = Vec::new();
     if content_length > 0 {
         let mut buf2 = vec![0; content_length];
-        let body_size = reader.read(&mut buf2).unwrap();
+        match reader.read(&mut buf2) {
+            Ok(body_size) => {
+                if body_size == content_length {
+                    // TODO - find a more efficient way to do this
+                    for i in 0..body_size {
+                        body.push(buf2[i]);
+                    }
+                } else {
+                    content_length = 0;
+                    response = response.status(StatusCode::REQUEST_TIMEOUT);
+                }
+            },
+            Err(_) => {
+                content_length = 0;
+            }
+        }  // end-match
+    }  // end-if
 
-        // TODO - find a more efficient way to do this
-        for i in 0..body_size {
-            body.push(buf2[i]);
-        }
-    }
+    // this ensures that every non-error response has exactly 1 content-length header
+    response = response.header("content-length", content_length);
 
-    // if body.len() >= content_length {
-    //     break;
-    // } else {
-    //     // part of the message is missing ... throttle and retry
-    //     thread::sleep(time::Duration::from_millis(5));
-    // }
     response.body(body)
 }
 
