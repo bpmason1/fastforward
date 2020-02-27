@@ -36,13 +36,14 @@ named!( parse_response_line <ResponseLine>,
     )
 );
 
-fn read_initial_request_line(mut reader: &mut BufReader<TcpStream>) -> Builder {
+fn read_initial_request_line(reader: &mut BufReader<TcpStream>) -> Result<Builder, http::Error> {
     let mut line: String = String::from("");
     reader.read_line(&mut line).unwrap();
 
     let (_, resp_line) = parse_response_line(line.as_bytes()).unwrap();
 
-    let status_code = StatusCode::from_bytes(resp_line.status_code.as_bytes()).unwrap();
+    let status_code_bytes = resp_line.status_code.as_bytes();
+    let status_code = StatusCode::from_bytes(status_code_bytes)?;
 
     let mut response = Response::builder().status(status_code);
 
@@ -52,11 +53,11 @@ fn read_initial_request_line(mut reader: &mut BufReader<TcpStream>) -> Builder {
         _ => response
     };
 
-    response
+    Ok(response)
 }
 
 fn _read_http_response(reader: &mut BufReader<TcpStream>) -> Result<Response<Vec<u8>>, http::Error> {
-    let mut response = read_initial_request_line(reader);
+    let mut response = read_initial_request_line(reader)?;
 
     let mut content_length = 0;
 
