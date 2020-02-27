@@ -34,8 +34,7 @@ named!( read_request_line <RequestLine>,
         (RequestLine {method: method, target: target , version: version})
     )
 );
-
-pub fn read_http_request(mut stream: TcpStream) -> Result<Request<Vec<u8>>, http::Error> {
+fn _read_http_request(mut stream: TcpStream) -> Result<Request<Vec<u8>>, http::Error> {
     let mut buf = [0; 1024];
     stream.read(&mut buf).unwrap();
 
@@ -74,4 +73,8 @@ pub fn read_http_request(mut stream: TcpStream) -> Result<Request<Vec<u8>>, http
         return request.body(body_vec);
     }
 
+}
+
+pub fn read_http_request(mut stream: TcpStream) -> Result<Request<Vec<u8>>, http::Error> {
+    _read_http_request(stream)
 }

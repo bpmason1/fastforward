@@ -14,9 +14,13 @@ use crate::combinators::{
 
 use http::{Response, StatusCode, Version};
 use http::response::Builder;
-use std::io::BufReader;
-use std::io::prelude::*;
+use std::io::{
+    self,
+    BufReader,
+    prelude::*
+};
 use std::net::TcpStream;
+
 
 #[derive(PartialEq, Debug)]
 struct ResponseLine<'a> {
@@ -51,16 +55,18 @@ fn read_initial_request_line(mut reader: &mut BufReader<TcpStream>) -> Builder {
     response
 }
 
-pub fn read_http_response(stream: TcpStream) -> Result<Response<Vec<u8>>, http::Error> {
-    let mut reader = BufReader::new(stream);
-    let mut response = read_initial_request_line(&mut reader);
+fn _read_http_response(reader: &mut BufReader<TcpStream>) -> Result<Response<Vec<u8>>, http::Error> {
+    let mut response = read_initial_request_line(reader);
 
     let mut content_length = 0;
 
     loop {
         let mut line: String = String::from("");
-        reader.read_line(&mut line);
-        if line.as_str() == "\r\n" {
+        let num_bytes_result: Result<usize, io::Error> = reader.read_line(&mut line);
+
+        let num_bytes = num_bytes_result.unwrap();
+
+        if num_bytes == 2 && line.as_str() == "\r\n" {
             break;
         }
 
@@ -89,4 +95,10 @@ pub fn read_http_response(stream: TcpStream) -> Result<Response<Vec<u8>>, http::
     //     thread::sleep(time::Duration::from_millis(5));
     // }
     response.body(body)
+}
+
+pub fn read_http_response(stream: TcpStream) -> Result<Response<Vec<u8>>, http::Error> {
+    let mut reader: BufReader<TcpStream> = BufReader::new(stream);
+
+    _read_http_response(&mut reader)
 }
