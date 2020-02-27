@@ -45,10 +45,13 @@ fn _read_http_request(mut stream: TcpStream) -> Result<Request<Vec<u8>>, http::E
     let mut request = Request::builder()
                         .method(req_line.method)
                         .uri(req_line.target);
-    match req_line.version {
-        "1.1" => {request = request.version( Version::HTTP_11 )}
-        "2.0" => {request = request.version( Version::HTTP_2 )}
-        _ => {}
+    request = match req_line.version {
+        "0.9" => request.version( Version::HTTP_09 ),
+        "1.0" => request.version( Version::HTTP_10 ),
+        "1.1" => request.version( Version::HTTP_11 ),
+        "2.0" => request.version( Version::HTTP_2 ),
+        "3.0" => request.version( Version::HTTP_3 ),
+        _ => { request }  // I don't know the http version so skip it
     };
 
     let mut content_length = 0;
