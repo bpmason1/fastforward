@@ -72,10 +72,17 @@ fn _read_http_response(reader: &mut BufReader<TcpStream>) -> Result<Response<Vec
         let mut line: String = String::from("");
         let num_bytes_result: Result<usize, io::Error> = reader.read_line(&mut line);
 
-        let num_bytes = num_bytes_result.unwrap();
-
-        if num_bytes == 2 && line.as_str() == "\r\n" {
-            break;
+        match num_bytes_result {
+            Ok(num_bytes) => {
+                if num_bytes == 2 && line.as_str() == "\r\n" {
+                    break;
+                }
+            },
+            Err(_) => {
+                content_length = 0;
+                response = response.status(StatusCode::REQUEST_TIMEOUT);
+                break;
+            }
         }
 
         match read_header(line.as_bytes()) {
