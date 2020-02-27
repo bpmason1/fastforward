@@ -37,25 +37,29 @@ named!( parse_response_line <ResponseLine>,
 );
 
 fn read_initial_request_line(reader: &mut BufReader<TcpStream>) -> Result<Builder, http::Error> {
+    let mut response = Response::builder();
+
     let mut line: String = String::from("");
-    reader.read_line(&mut line).unwrap();
+    match reader.read_line(&mut line) {
+        Ok(_) => {
+            let (_, resp_line) = parse_response_line(line.as_bytes()).unwrap();
 
-    let (_, resp_line) = parse_response_line(line.as_bytes()).unwrap();
+            let status_code_bytes = resp_line.status_code.as_bytes();
+            let status_code = StatusCode::from_bytes(status_code_bytes)?;
 
-    let status_code_bytes = resp_line.status_code.as_bytes();
-    let status_code = StatusCode::from_bytes(status_code_bytes)?;
+            response = response.status(status_code);
 
-    let mut response = Response::builder().status(status_code);
-
-    response = match resp_line.version {
-        "0.9" => response.version( Version::HTTP_09 ),
-        "1.0" => response.version( Version::HTTP_10 ),
-        "1.1" => response.version( Version::HTTP_11 ),
-        "2.0" => response.version( Version::HTTP_2 ),
-        "3.0" => response.version( Version::HTTP_3 ),
-        _ => { response }  // I don't know the http version so skip it
-    };
-
+            response = match resp_line.version {
+                "0.9" => response.version( Version::HTTP_09 ),
+                "1.0" => response.version( Version::HTTP_10 ),
+                "1.1" => response.version( Version::HTTP_11 ),
+                "2.0" => response.version( Version::HTTP_2 ),
+                "3.0" => response.version( Version::HTTP_3 ),
+                _ => { response }  // I don't know the http version so skip it
+            };
+        },
+        Err(_) => {}
+    }
     Ok(response)
 }
 
