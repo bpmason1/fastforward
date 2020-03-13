@@ -8,4 +8,7 @@ edition = "2018"
 
 [dependencies]
 http = "0.2.0"
+mockito = "0.23.3"
 nom = { version = "5.1.1", features = ["regexp"] }
+rand = "0.7.3"
+
