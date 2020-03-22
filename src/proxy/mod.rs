@@ -1,7 +1,7 @@
 mod filters;
 
 use filters::remove_hop_by_hop_headers;
-use bottle::httpx::{read_http_request, read_http_response};
+use flask::httpx::{read_http_request, read_http_response};
 use http::{
     Request,
     Response,

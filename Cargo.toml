@@ -1,6 +1,6 @@
 [package]
 name = "fastforward"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Brian Mason <bpmason1@hotmail.com>"]
 repository = "https://github.com/bpmason1/fastforward"
 
@@ -27,7 +27,7 @@ A library for implementing custom reverse proxies.
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bottle = { path = "./bottle" }
+flask = "1.0.0"
 http = "0.2.0"
 num_cpus = "1.11.1"
 rayon = "1.3.0"
