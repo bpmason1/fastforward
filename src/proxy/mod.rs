@@ -84,7 +84,7 @@ fn handle_client(stream: TcpStream , director: Director ) {
 
             match read_http_response(proxy_stream.try_clone().unwrap()) {
                 Ok(resp) => write_response(resp, stream),
-                Err(err) => {
+                Err(_) => {
                     let resp = Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(Vec::new()).unwrap();
                     write_response(resp, stream)
                 }
@@ -98,10 +98,18 @@ pub fn generic_proxy(listen_addr: SocketAddr, director: Director) {
 
     let pool = rayon::ThreadPoolBuilder::new().num_threads(2*num_cpus::get()).build().unwrap();
     pool.install( || {
-        for stream in listener.incoming() {
-            pool.spawn( move || {
-                handle_client(stream.unwrap(), director)
-            })
+        for new_stream in listener.incoming() {
+            match new_stream {
+                Ok(stream) => {
+                    pool.spawn( move || {
+                        handle_client(stream, director)
+                    })
+                }
+                Err(_) => {
+                    eprintln!("Error accessing TcpStream in generic_proxy");
+                    // TODO - decide if any further action needs to be taken here
+                }
+            }
         }
     });
 }
