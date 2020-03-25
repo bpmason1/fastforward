@@ -17,7 +17,7 @@ use std::string::String;
 
 type Director = fn(&mut Request<Vec<u8>>) -> Option<Response<Vec<u8>>>;
 
-fn write_response(resp: Response<Vec<u8>>, mut client: TcpStream) {
+fn write_response(resp: Response<Vec<u8>>, mut client: TcpStream) -> bool {
     let reason = match resp.status().canonical_reason() {
         Some(r) => r,
         None => ""
@@ -39,9 +39,11 @@ fn write_response(resp: Response<Vec<u8>>, mut client: TcpStream) {
         };
     }
 
+    if client.write(b"\r\n").is_err() {
+        return false
+    }
 
-    client.write(b"\r\n");
-    client.write(resp.body());
+    client.write(resp.body()).is_ok()
 } 
 
 fn write_request(req: Request<Vec<u8>>, mut client: TcpStream) -> bool {
@@ -91,10 +93,10 @@ fn handle_client(stream: TcpStream , director: Director ) {
 
             if write_request(req, proxy_stream.try_clone().unwrap()) {
                 match read_http_response(proxy_stream.try_clone().unwrap()) {
-                    Ok(resp) => write_response(resp, stream),
+                    Ok(resp) => { write_response(resp, stream); },
                     Err(_) => {
                         let resp = Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(Vec::new()).unwrap();
-                        write_response(resp, stream)
+                        write_response(resp, stream);
                     }
                 }
             } else {
