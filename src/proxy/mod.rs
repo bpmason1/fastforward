@@ -97,7 +97,13 @@ fn handle_client(stream: TcpStream , director: Director ) {
         },
         None => {
             let proxy_addr = req.headers().get(http::header::HOST).unwrap();
-            let proxy_stream = TcpStream::connect(from_utf8(proxy_addr.as_bytes()).unwrap()).unwrap();
+            let proxy_stream = match TcpStream::connect(from_utf8(proxy_addr.as_bytes()).unwrap()) {
+                Ok(stream) => stream,
+                Err(err) => {
+                    eprintln!("Error: could not connect to downstream service ... {}", err);
+                    return;
+                }
+            };
 
             if write_request(req, proxy_stream.try_clone().unwrap()) {
                 match read_http_response(proxy_stream.try_clone().unwrap()) {
@@ -108,7 +114,7 @@ fn handle_client(stream: TcpStream , director: Director ) {
                     }
                 }
             } else {
-                eprintln!("Error sending request to client")
+                eprintln!("Error: sending request to client")
             }
         }
     };
