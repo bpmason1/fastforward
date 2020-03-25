@@ -23,24 +23,30 @@ fn write_response(resp: Response<Vec<u8>>, mut client: TcpStream) -> bool {
         None => ""
     };
     let resp_line = format!("{:?} {} {}\r\n", resp.version(), resp.status().as_str(), reason);
-    client.write(resp_line.as_bytes());
+    if client.write(resp_line.as_bytes()).is_err() {
+        return false;
+    }
 
     for (key, value) in resp.headers().iter() {
         match key.as_str() {
             "content-length" => {
                 let body_size = resp.body().len();
                 let h: String = format!("{}: {}\r\n", key, body_size);
-                client.write(h.as_bytes());    
+                if client.write(h.as_bytes()).is_err() {
+                    return false;
+                }
             },
             _ => {
                 let h: String = format!("{}: {}\r\n", key, value.to_str().unwrap());
-                client.write(h.as_bytes());
+                if client.write(h.as_bytes()).is_err() {
+                    return false;
+                }
             }
         };
     }
 
     if client.write(b"\r\n").is_err() {
-        return false
+        return false;
     }
 
     client.write(resp.body()).is_ok()
@@ -74,7 +80,7 @@ fn write_request(req: Request<Vec<u8>>, mut client: TcpStream) -> bool {
     }
 
     if client.write(b"\r\n").is_err() {
-        return false
+        return false;
     }
 
     client.write(req.body()).is_ok()
@@ -85,7 +91,9 @@ fn handle_client(stream: TcpStream , director: Director ) {
     *req.headers_mut() = remove_hop_by_hop_headers(req.headers());
     match (director)(&mut req) {
         Some(resp) => {
-            write_response(resp, stream);
+            if !write_response(resp, stream) {
+                eprintln!("Error receiving response from client");
+            }
         },
         None => {
             let proxy_addr = req.headers().get(http::header::HOST).unwrap();
