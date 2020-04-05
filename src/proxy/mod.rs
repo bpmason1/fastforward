@@ -86,37 +86,40 @@ fn write_request(req: Request<Vec<u8>>, mut client: TcpStream) -> bool {
     client.write(req.body()).is_ok()
 }
 
-fn handle_client(stream: TcpStream , director: Director ) {
+fn handle_request(stream: TcpStream, req: Request<Vec<u8>>,) {
+    let proxy_addr = req.headers().get(http::header::HOST).unwrap();
+    let proxy_stream = match TcpStream::connect(from_utf8(proxy_addr.as_bytes()).unwrap()) {
+        Ok(stream) => stream,
+        Err(err) => {
+            eprintln!("Error: could not connect to downstream service ... {}", err);
+            return;
+        }
+    };
+
+    if write_request(req, proxy_stream.try_clone().unwrap()) {
+        match read_http_response(proxy_stream.try_clone().unwrap()) {
+            Ok(resp) => { write_response(resp, stream); },
+            Err(_) => {
+                let resp = Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(Vec::new()).unwrap();
+                write_response(resp, stream);
+            }
+        }
+    } else {
+        eprintln!("Error: sending request to client")
+    }
+}
+
+fn handle_client(stream: TcpStream, director: Director ) {
     let mut req = read_http_request(stream.try_clone().unwrap()).unwrap();
     *req.headers_mut() = remove_hop_by_hop_headers(req.headers());
     match (director)(&mut req) {
         Some(resp) => {
+            // Don't proxy the request ... instead use the returned response object
             if !write_response(resp, stream) {
                 eprintln!("Error receiving response from client");
             }
         },
-        None => {
-            let proxy_addr = req.headers().get(http::header::HOST).unwrap();
-            let proxy_stream = match TcpStream::connect(from_utf8(proxy_addr.as_bytes()).unwrap()) {
-                Ok(stream) => stream,
-                Err(err) => {
-                    eprintln!("Error: could not connect to downstream service ... {}", err);
-                    return;
-                }
-            };
-
-            if write_request(req, proxy_stream.try_clone().unwrap()) {
-                match read_http_response(proxy_stream.try_clone().unwrap()) {
-                    Ok(resp) => { write_response(resp, stream); },
-                    Err(_) => {
-                        let resp = Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(Vec::new()).unwrap();
-                        write_response(resp, stream);
-                    }
-                }
-            } else {
-                eprintln!("Error: sending request to client")
-            }
-        }
+        None => handle_request(stream, req)
     };
 }
 
@@ -140,4 +143,3 @@ pub fn generic_proxy(listen_addr: SocketAddr, director: Director) {
         }
     });
 }
-
