@@ -3,6 +3,7 @@ mod filters;
 use filters::remove_hop_by_hop_headers;
 use flask::httpx::{read_http_request, read_http_response};
 use http::{
+    header::HeaderValue,
     Request,
     Response,
     StatusCode
@@ -98,7 +99,9 @@ fn handle_request(stream: TcpStream, req: Request<Vec<u8>>,) {
 
     if write_request(req, proxy_stream.try_clone().unwrap()) {
         match read_http_response(proxy_stream.try_clone().unwrap()) {
-            Ok(resp) => { write_response(resp, stream); },
+            Ok(resp) => {
+                write_response(resp, stream);
+            },
             Err(_) => {
                 let resp = Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(Vec::new()).unwrap();
                 write_response(resp, stream);
@@ -133,6 +136,36 @@ pub fn generic_proxy(listen_addr: SocketAddr, director: Director) {
                 Ok(stream) => {
                     pool.spawn( move || {
                         handle_client(stream, director)
+                    })
+                }
+                Err(_) => {
+                    eprintln!("Error accessing TcpStream in generic_proxy");
+                    // TODO - decide if any further action needs to be taken here
+                }
+            }
+        }
+    });
+}
+
+pub fn simple_proxy(listen_addr: SocketAddr, proxy_addr: SocketAddr) {
+    let listener = TcpListener::bind(listen_addr).unwrap();
+
+    let pool = rayon::ThreadPoolBuilder::new().num_threads(2*num_cpus::get()).build().unwrap();
+    pool.install( || {
+        for new_stream in listener.incoming() {
+            match new_stream {
+                Ok(stream) => {
+                    pool.spawn( move || {
+                        let _proxy_add_str = format!("{}", proxy_addr);
+                        let proxy_addr_hdr = HeaderValue::from_str(&_proxy_add_str).unwrap();
+
+                        let mut req = read_http_request(stream.try_clone().unwrap()).unwrap();
+                        *req.headers_mut() = remove_hop_by_hop_headers(req.headers());
+
+                        let req_headers = req.headers_mut();
+                        req_headers.remove(http::header::HOST);
+                        req_headers.insert(http::header::HOST, proxy_addr_hdr);
+                        handle_request(stream, req);
                     })
                 }
                 Err(_) => {

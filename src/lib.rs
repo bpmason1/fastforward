@@ -6,3 +6,4 @@ extern crate rayon;
 mod proxy;
 
 pub use proxy::generic_proxy;
+pub use proxy::simple_proxy;
