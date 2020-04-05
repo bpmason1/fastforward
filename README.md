@@ -12,8 +12,6 @@ and forwards the it to `proxy_addr` use the `simple_proxy` function.
 extern crate fastforward;
 extern crate http;
 
-mod proxy;
-
 use std::net::SocketAddr;
 use proxy::simple_proxy;
 
@@ -21,7 +19,7 @@ fn main() {
     let listen_addr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
     let proxy_addr: SocketAddr = "127.0.0.1:4000".parse().unwrap();
 
-    println!(dd"running on port :8080");
+    println!("running on port :8080");
     simple_proxy(listen_addr, proxy_addr);
 }
 ```
