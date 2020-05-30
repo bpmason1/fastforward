@@ -128,6 +128,51 @@ fn handle_client(stream: TcpStream, director: Director ) {
     };
 }
 
+fn proxy_tcp_stream(stream: TcpStream, proxy_addr: SocketAddr, ) {
+    let _proxy_add_str = format!("{}", proxy_addr);
+    let proxy_addr_hdr = HeaderValue::from_str(&_proxy_add_str).unwrap();
+
+    let mut req = read_http_request(stream.try_clone().unwrap()).unwrap();
+    *req.headers_mut() = remove_hop_by_hop_headers(req.headers());
+
+    let req_headers = req.headers_mut();
+    req_headers.remove(http::header::HOST);
+    req_headers.insert(http::header::HOST, proxy_addr_hdr);
+    handle_request(stream, req);
+}
+
+fn proxy_without_thread_pool(listener: TcpListener, proxy_addr: SocketAddr) {
+    for new_stream in listener.incoming() {
+        match new_stream {
+            Ok(stream) => {
+                proxy_tcp_stream(stream, proxy_addr)
+            }
+            Err(_) => {
+                eprintln!("Error accessing TcpStream in generic_proxy");
+                // TODO - decide if any further action needs to be taken here
+            }
+        }
+    }
+}
+
+fn proxy_with_thread_pool(pool: ThreadPool, listener: TcpListener, proxy_addr: SocketAddr) {
+    pool.install( || {
+        for new_stream in listener.incoming() {
+            match new_stream {
+                Ok(stream) => {
+                    pool.spawn( move || {
+                        proxy_tcp_stream(stream, proxy_addr)
+                    })
+                }
+                Err(_) => {
+                    eprintln!("Error accessing TcpStream in generic_proxy");
+                    // TODO - decide if any further action needs to be taken here
+                }
+            }
+        }
+    });
+}
+
 pub fn generic_proxy(listen_addr: SocketAddr, director: Director) {
     let listener = TcpListener::bind(listen_addr).unwrap();
 
@@ -158,33 +203,12 @@ pub fn simple_proxy(listen_addr: SocketAddr, proxy_addr: SocketAddr) {
         }
     };
 
-    let pool = rayon::ThreadPoolBuilder::new().num_threads(2*num_cpus::get()).build().unwrap();
-    proxy_with_thread_pool(pool, listener, proxy_addr);
-}
-
-fn proxy_with_thread_pool(pool: ThreadPool, listener: TcpListener, proxy_addr: SocketAddr) {
-    pool.install( || {
-        for new_stream in listener.incoming() {
-            match new_stream {
-                Ok(stream) => {
-                    pool.spawn( move || {
-                        let _proxy_add_str = format!("{}", proxy_addr);
-                        let proxy_addr_hdr = HeaderValue::from_str(&_proxy_add_str).unwrap();
-
-                        let mut req = read_http_request(stream.try_clone().unwrap()).unwrap();
-                        *req.headers_mut() = remove_hop_by_hop_headers(req.headers());
-
-                        let req_headers = req.headers_mut();
-                        req_headers.remove(http::header::HOST);
-                        req_headers.insert(http::header::HOST, proxy_addr_hdr);
-                        handle_request(stream, req);
-                    })
-                }
-                Err(_) => {
-                    eprintln!("Error accessing TcpStream in generic_proxy");
-                    // TODO - decide if any further action needs to be taken here
-                }
-            }
+    match rayon::ThreadPoolBuilder::new().num_threads(2*num_cpus::get()).build() {
+        Ok(pool) => proxy_with_thread_pool(pool, listener, proxy_addr),
+        Err(err) => {
+            eprintln!("{}", err);
+            println!("Running proxy without thread pool");
+            proxy_without_thread_pool(listener, proxy_addr)
         }
-    });
+    }
 }
