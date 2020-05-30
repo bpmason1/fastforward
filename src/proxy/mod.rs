@@ -14,6 +14,7 @@ use std::net::SocketAddr;
 use std::net::{TcpListener, TcpStream};
 use std::str::from_utf8;
 use std::string::String;
+use std::process::exit;
 
 
 type Director = fn(&mut Request<Vec<u8>>) -> Option<Response<Vec<u8>>>;
@@ -148,7 +149,13 @@ pub fn generic_proxy(listen_addr: SocketAddr, director: Director) {
 }
 
 pub fn simple_proxy(listen_addr: SocketAddr, proxy_addr: SocketAddr) {
-    let listener = TcpListener::bind(listen_addr).unwrap();
+    let listener: TcpListener = match TcpListener::bind(listen_addr) {
+        Ok(_listener) => _listener,
+        Err(err) => {
+            eprintln!("{}", err);
+            exit(1);
+        }
+    };
 
     let pool = rayon::ThreadPoolBuilder::new().num_threads(2*num_cpus::get()).build().unwrap();
     pool.install( || {
