@@ -9,6 +9,7 @@ use http::{
     StatusCode
 };
 use num_cpus;
+use rayon::ThreadPool;
 use std::io::Write;
 use std::net::SocketAddr;
 use std::net::{TcpListener, TcpStream};
@@ -158,6 +159,10 @@ pub fn simple_proxy(listen_addr: SocketAddr, proxy_addr: SocketAddr) {
     };
 
     let pool = rayon::ThreadPoolBuilder::new().num_threads(2*num_cpus::get()).build().unwrap();
+    proxy_with_thread_pool(pool, listener, proxy_addr);
+}
+
+fn proxy_with_thread_pool(pool: ThreadPool, listener: TcpListener, proxy_addr: SocketAddr) {
     pool.install( || {
         for new_stream in listener.incoming() {
             match new_stream {
