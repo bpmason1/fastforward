@@ -45,7 +45,7 @@ use fastforward::generic_proxy;
 // The director function mutates the incoming request before proxying it.
 // In this example, the request URI is changed to the proxy URI.
 // This examle mimics the functionality of the `simple_proxy` function.
-fn my_director(req: &mut http::Request<Vec<u8>>) -> Option<Response<Vec<u8>>> { 
+fn req_transform(req: &mut http::Request<Vec<u8>>) -> Option<Response<Vec<u8>>> { 
    // set the variables
    let proxy_addr = HeaderValue::from_str("127.0.0.1:4000").unwrap();
 
@@ -56,9 +56,16 @@ fn my_director(req: &mut http::Request<Vec<u8>>) -> Option<Response<Vec<u8>>> {
    None  // ignore the return type for this example
 }
 
+fn resp_transform(resp: &mut http::Response<Vec<u8>>) {
+   let x_header_val = HeaderValue::from_str("Foo Bar").unwrap();
+    
+    let resp_headers = resp.headers_mut();
+    resp_headers.insert("X-HEADER-VAL", x_header_val);
+}
+
 fn main() {
     let listen_addr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
-    generic_proxy(listen_addr, my_director);
+    generic_proxy(listen_addr, req_transform, resp_transform);
 }
 ```
 
