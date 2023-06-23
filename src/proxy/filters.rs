@@ -36,8 +36,7 @@ pub fn remove_hop_by_hop_headers(headers: &HeaderMap) -> HeaderMap {
 /// Per RFC 7230 Section 6.1 - MUST remove Connection and Connection option headers
 fn test_filter_frontend_request_headers() {
     use http::{
-        header::{HeaderName, HeaderValue},
-        Response
+        header::{HeaderName, HeaderValue}
     };
 
     // let header_vec = vec![
